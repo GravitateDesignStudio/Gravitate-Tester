@@ -2,6 +2,11 @@
 
 class GRAVITATE_TEST_WP_HEAD_FOOTER
 {
+	public function type()
+	{
+		return 'php';
+	}
+
 	public function group()
 	{
 		return 'WordPress Tests';

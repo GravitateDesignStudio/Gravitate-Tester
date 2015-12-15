@@ -2,6 +2,11 @@
 
 class GRAVITATE_TEST_WP_VERSION
 {
+	public function type()
+	{
+		return 'php';
+	}
+
 	public function group()
 	{
 		return 'WordPress Tests';

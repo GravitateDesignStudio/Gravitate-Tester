@@ -12,7 +12,7 @@ register_activation_hook( __FILE__, array( 'GRAVITATE_TESTER', 'activate' ));
 register_deactivation_hook( __FILE__, array( 'GRAVITATE_TESTER', 'deactivate' ));
 
 add_action('admin_menu', array( 'GRAVITATE_TESTER', 'admin_menu' ));
-add_action('admin_init', array( 'GRAVITATE_TESTER', 'init' ));
+add_action('init', array( 'GRAVITATE_TESTER', 'init' ));
 add_filter('plugin_action_links_'.plugin_basename(__FILE__), array('GRAVITATE_TESTER', 'plugin_settings_link' ));
 add_action('wp_ajax_grav_run_test', array( 'GRAVITATE_TESTER', 'ajax_run_test' ));
 
@@ -26,7 +26,37 @@ class GRAVITATE_TESTER {
 
 	public static function init()
 	{
-		self::setup();
+		if(is_admin() || !empty($_GET['grav_js_test']))
+		{
+			self::setup();
+		}
+
+		if(!empty($_GET['grav_js_test']))
+		{
+			$test = $_GET['grav_js_test'];
+			$enabled_tests = self::get_enabled_tests();
+			if(in_array($test, $enabled_tests))
+			{
+				$tests = self::get_tests();
+				if(!empty($tests[$test]['class']))
+				{
+					$test_class = $tests[$test]['class'];
+					$test_obj = new $test_class();
+					$id = dechex(crc32($tests[$test]['file']));
+					$test_obj->id = $id;
+
+					if(method_exists($test_obj,'js_head'))
+					{
+						add_action('wp_head', array($test_obj, 'js_head'));
+					}
+
+					if(method_exists($test_obj,'js_footer'))
+					{
+						add_action('wp_footer', array($test_obj, 'js_footer'));
+					}
+				}
+			}
+		}
 	}
 
 	private static function setup()
@@ -108,7 +138,12 @@ class GRAVITATE_TESTER {
 				$test = new $test_class();
 				$id = dechex(crc32($file));
 
-				$tests[$id] = array('id' => $id, 'group' => $test->group(), 'file' => $file, 'class' => $test_class, 'description' => $test->description());
+				$tests[$id] = array('id' => $id, 'type' => $test->type(), 'group' => $test->group(), 'urls' => '', 'file' => $file, 'class' => $test_class, 'description' => $test->description());
+
+				if($test->type() === 'js' && method_exists($test,'js_urls'))
+				{
+					$tests[$id]['urls'] = $test->js_urls();
+				}
 			}
 		}
 
@@ -130,6 +165,70 @@ class GRAVITATE_TESTER {
 		}
 
 		return $tests;
+	}
+
+
+	public static function get_general_page_urls()
+	{
+		$urls = array(site_url(),site_url().'/?s=grav-test',site_url().'/404-grav-test-url');
+
+		if($menus = get_registered_nav_menus())
+		{
+			foreach ($menus as $menu => $title)
+			{
+				$locations = get_nav_menu_locations();
+
+				if(isset($locations[ $menu ]))
+				{
+					$menu = wp_get_nav_menu_object( $locations[ $menu ] );
+
+					if(!empty($menu->term_id))
+					{
+						$items = wp_get_nav_menu_items( $menu->term_id );
+
+						if(!empty($items))
+						{
+							foreach ($items as $item)
+							{
+								if(strpos($item->url, site_url()) !== false)
+								{
+									$urls[] = $item->url;
+								}
+							}
+						}
+					}
+				}
+
+				if(empty($items))
+				{
+					$menu = wp_page_menu( array('echo' => false) );
+					preg_match_all('/href\=\"([^"]*)\"/s', $menu, $matches);
+
+					if(!empty($matches[1]))
+					{
+						foreach ($matches[1] as $url)
+						{
+							$urls[] = $url;
+						}
+					}
+				}
+			}
+		}
+
+		if(count($urls) < 2)
+		{
+			foreach(get_pages(array('number' => 10)) as $page)
+			{
+				$urls[] = get_permalink($page->ID);
+			}
+		}
+
+		foreach(get_posts(array('posts_per_page' => 2)) as $post)
+		{
+			$urls[] = get_permalink($post->ID);
+		}
+
+		return array_unique($urls);
 	}
 
 	/**
@@ -311,6 +410,9 @@ class GRAVITATE_TESTER {
 		.failed {
 			color: #A00;
 		}
+		.testing {
+			color: #999;
+		}
 		#the-list td input {
 			display: block;
 			border: 1px dashed #c8c8c8;
@@ -355,7 +457,7 @@ class GRAVITATE_TESTER {
 							<span></span><input readonly="readonly">
 						</td>
 						<td style="width:10%;white-space:nowrap;">
-							<button class="button" onclick="run_ajax_test('<?php echo $tests[$test]['id']; ?>', 500);">Run Test</button>
+							<button class="button" onclick="run_ajax_test('<?php echo $tests[$test]['id']; ?>', '<?php echo $tests[$test]['type']; ?>', '<?php echo $tests[$test]['urls']; ?>', 500);">Run Test</button>
 						</td>
 					</tr>
 					<?php } ?>
@@ -368,9 +470,13 @@ class GRAVITATE_TESTER {
 		jQuery('#the-list td input').hide();
 
 		var grav_tests = [];
+		var grav_js_tests_failed = [];
 		<?php foreach ($enabled_tests as $num => $test) { ?>
 			<?php if(!empty($tests[$test])) { ?>
-				grav_tests[<?php echo $num;?>] = '<?php echo $tests[$test]['id'];?>';
+				grav_tests[<?php echo $num;?>] = {'id': '<?php echo $tests[$test]['id'];?>', 'type': '<?php echo $tests[$test]['type'];?>', 'urls': '<?php echo $tests[$test]['urls'];?>'};
+			<?php } ?>
+			<?php if(!empty($tests[$test]['type']) && $tests[$test]['type'] === 'js') { ?>
+				grav_js_tests_failed['<?php echo $tests[$test]['id'];?>'] = false;
 			<?php } ?>
 		<?php } ?>
 
@@ -378,83 +484,133 @@ class GRAVITATE_TESTER {
 		{
 			for(var t in grav_tests)
 			{
-				run_ajax_test(grav_tests[t], 300);
+				console.log(grav_tests[t]['id']);
+				run_ajax_test(grav_tests[t]['id'], grav_tests[t]['type'], grav_tests[t]['urls'], 300);
 			}
 		}
 
-		function run_ajax_test(test, msec)
+		function run_ajax_test(test, type, urls, msec)
 		{
-			jQuery('.test-' + test + ' h4').removeClass('failed').removeClass('passed').html('Testing...');
+			jQuery('.test-' + test + ' h4').removeClass('failed').removeClass('passed').addClass('testing').html('Testing...');
 
 			jQuery('.test-' + test + ' span').html('');
 			jQuery('.test-' + test + ' input').hide();
 			jQuery('.test-' + test + ' input').val('');
 
 			setTimeout(function(){
-				jQuery.post('<?php echo admin_url("admin-ajax.php");?>',
-				{
-					'action': 'grav_run_test',
-					'grav_test': test
-				},
-				function(response)
-				{
-					var data = false;
 
-					if(response)
+				if(type === 'php')
+				{
+					jQuery.post('<?php echo admin_url("admin-ajax.php");?>',
 					{
+						'action': 'grav_run_test',
+						'grav_test': test
+					},
+					function(response)
+					{
+						test_results(test, response);
 
-						if(response.substr(0, 1) === '{')
-						{
-							data = jQuery.parseJSON(response);
-						}
-						else if(response.indexOf('{') > -1)
-						{
-							response = response.substr(response.indexOf('{'));
-							data = jQuery.parseJSON(response);
-						}
+					}).fail(function()
+					{
+	    				jQuery('.test-' + test + ' h4').removeClass('passed').removeClass('failed').removeClass('testing').html('Unknown');
+						jQuery('.test-' + test + ' span').html('Error Getting Response from Test.');
+	  				});
+	  			}
+	  			else if(type === 'js')
+	  			{
+	  				if(urls)
+	  				{
+	  					urls = urls.split(' ').join('').split(',');
+	  					var url;
+	  					var url_id;
+	  					for(var u in urls)
+	  					{
+	  						url = urls[u];
+	  						url_id = 'frame-'+test+'-'+u;
 
-						if(data)
-						{
-							if(data['pass'] === true)
-							{
-								jQuery('.test-' + test + ' h4').addClass('passed').removeClass('failed').html('Passed');
-							}
-							else if(data['pass'] === false)
-							{
-								jQuery('.test-' + test + ' h4').addClass('failed').removeClass('passed').html('Failed');
-							}
-							else
-							{
-								jQuery('.test-' + test + ' h4').removeClass('failed').removeClass('passed').html('Unknown');
-							}
-
-							if(data['message'])
-							{
-								jQuery('.test-' + test + ' span').html(data['message']);
-							}
-
-							if(data['location'])
-							{
-								jQuery('.test-' + test + ' input').val(data['location']);
-								jQuery('.test-' + test + ' input').show();
-							}
-						}
-						else
-						{
-							jQuery('.test-' + test + ' h4').removeClass('passed').removeClass('failed').html('Unknown');
-							jQuery('.test-' + test + ' span').html('Error Getting Response from Test.');
-						}
-					}
-				}).fail(function()
-				{
-    				jQuery('.test-' + test + ' h4').removeClass('passed').removeClass('failed').html('Unknown');
-					jQuery('.test-' + test + ' span').html('Error Getting Response from Test.');
-  				});
+	  						if(jQuery('#'+url_id).length)
+	  						{
+	  							jQuery('#'+url_id).remove();
+	  						}
+	  						jQuery('<iframe id="'+url_id+'" src="'+url+(url.indexOf('?') > -1 ? '&' : '?')+'grav_js_test='+test+'">').appendTo('body').css('display', 'none');
+	  					}
+	  				}
+	  			}
 			}, msec);
 		}
 
-		</script>
+		function test_results(test, response)
+		{
+			var data = false;
 
+			if(response)
+			{
+				if(typeof response === 'string')
+				{
+					if(response.substr(0, 1) === '{')
+					{
+						data = jQuery.parseJSON(response);
+					}
+					else if(response.indexOf('{') > -1)
+					{
+						response = response.substr(response.indexOf('{'));
+						data = jQuery.parseJSON(response);
+					}
+				}
+				else
+				{
+					data = response;
+				}
+
+				if(data)
+				{
+					if(data['pass'] === true)
+					{
+						jQuery('.test-' + test + ' h4').addClass('passed').removeClass('failed').removeClass('testing').html('Passed');
+					}
+					else if(data['pass'] === false)
+					{
+						jQuery('.test-' + test + ' h4').addClass('failed').removeClass('passed').removeClass('testing').html('Failed');
+					}
+					else
+					{
+						jQuery('.test-' + test + ' h4').removeClass('failed').removeClass('passed').removeClass('testing').html('Unknown');
+					}
+
+					if(data['message'])
+					{
+						jQuery('.test-' + test + ' span').html(data['message']);
+					}
+
+					if(data['location'])
+					{
+						jQuery('.test-' + test + ' input').val(data['location']);
+						jQuery('.test-' + test + ' input').show();
+					}
+				}
+				else
+				{
+					jQuery('.test-' + test + ' h4').removeClass('passed').removeClass('failed').removeClass('testing').html('Unknown');
+					jQuery('.test-' + test + ' span').html('Error Getting Response from Test.');
+				}
+			}
+		}
+
+		function grav_tests_js_pass(test, pass, message, location)
+		{
+			if(pass && grav_js_tests_failed[test] === true)
+			{
+				return;
+			}
+
+			if(!pass && grav_js_tests_failed[test] === false)
+			{
+				grav_js_tests_failed[test] = true;
+			}
+			test_results(test, {'pass': pass, 'message': message.replace('?grav_js_test='+test, '').replace('&grav_js_test='+test, ''), 'location': location.replace('?grav_js_test='+test, '').replace('&grav_js_test='+test, '')});
+		}
+
+		</script>
 
 		<?php
 	}
@@ -515,6 +671,11 @@ function your_function($tests)
 
 class YourCompanyNameCustomTestName
 {
+	public function type()
+	{
+		return 'php'; /* php | js */
+	}
+
 	public function group()
 	{
 		return 'WordPress Tests';
@@ -539,6 +700,63 @@ class YourCompanyNameCustomTestName
 		{
 			return array('pass' => null, 'message' => 'Unknown Error', 'location' => '');
 		}
+	}
+}
+
+				</textarea>
+				</blockquote>
+				<br>
+				<blockquote>
+				<label>Example of a Javascript Test</label>
+				<br>
+				<textarea class="grav-code-block" rows="9" cols="80">
+&lt;?php
+
+class YourCompanyNameCustomTestName
+{
+	public function type()
+	{
+		return 'js';
+	}
+
+	public function group()
+	{
+		return 'JS Tests';
+	}
+
+	public function description()
+	{
+		return 'Check Basic Pages for JS Errors on Page Load';
+	}
+
+	public function js_urls()
+	{
+		$urls = GRAVITATE_TESTER::get_general_page_urls();
+
+		return implode(',', $urls);
+	}
+
+	public function js_head()
+	{
+		?&gt;
+		&lt;script type="text/javascript"&gt;
+
+			window.onerror = function(error, file, linenumber)
+			{
+		  		parent.grav_tests_js_pass('&lt;?php echo $this->id;?&gt;', false, 'JS Error loading ('+window.location.href+'): '+ error, file+' (Line: '+linenumber+')');
+			};
+
+		&lt;/script&gt;
+		&lt;?php
+	}
+
+	public function js_footer()
+	{
+		?&gt;
+		&lt;script type="text/javascript"&gt;
+		// Some Code Here
+		&lt;/script&gt;
+		&lt;?php
 	}
 }
 
