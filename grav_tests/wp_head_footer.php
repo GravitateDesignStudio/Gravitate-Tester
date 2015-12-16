@@ -24,9 +24,7 @@ class GRAVITATE_TEST_WP_HEAD_FOOTER
 
 		if($header)
 		{
-			$header = preg_replace('!/\*.*?\*/!s', '', $header);
-			$header = preg_replace('/\n\s*\n/', "\n", $header);
-			$header = preg_replace('![ \t]*//.*[ \t]*[\r\n]!', '', $header);
+			$header = GRAVITATE_TESTER::remove_comments($header);
 		}
 		else
 		{
@@ -47,9 +45,7 @@ class GRAVITATE_TEST_WP_HEAD_FOOTER
 
 		if($footer)
 		{
-			$footer = preg_replace('!/\*.*?\*/!s', '', $footer);
-			$footer = preg_replace('/\n\s*\n/', "\n", $footer);
-			$footer = preg_replace('![ \t]*//.*[ \t]*[\r\n]!', '', $footer);
+			$footer = GRAVITATE_TESTER::remove_comments($footer);
 		}
 		else
 		{

@@ -15,6 +15,7 @@ add_action('admin_menu', array( 'GRAVITATE_TESTER', 'admin_menu' ));
 add_action('init', array( 'GRAVITATE_TESTER', 'init' ));
 add_filter('plugin_action_links_'.plugin_basename(__FILE__), array('GRAVITATE_TESTER', 'plugin_settings_link' ));
 add_action('wp_ajax_grav_run_test', array( 'GRAVITATE_TESTER', 'ajax_run_test' ));
+add_action('wp_ajax_grav_run_fix_test', array( 'GRAVITATE_TESTER', 'ajax_run_fix_test' ));
 
 
 class GRAVITATE_TESTER {
@@ -138,11 +139,19 @@ class GRAVITATE_TESTER {
 				$test = new $test_class();
 				$id = dechex(crc32($file));
 
-				$tests[$id] = array('id' => $id, 'type' => $test->type(), 'group' => $test->group(), 'urls' => '', 'file' => $file, 'class' => $test_class, 'description' => $test->description());
+				$tests[$id] = array('id' => $id, 'type' => $test->type(), 'group' => $test->group(), 'can_fix' => false, 'urls' => '', 'file' => $file, 'class' => $test_class, 'description' => $test->description());
 
 				if($test->type() === 'js' && method_exists($test,'js_urls'))
 				{
 					$tests[$id]['urls'] = $test->js_urls();
+				}
+
+				if(method_exists($test,'can_fix') && method_exists($test,'fix'))
+				{
+					if($test->can_fix())
+					{
+						$tests[$id]['can_fix'] = true;
+					}
 				}
 			}
 		}
@@ -165,6 +174,16 @@ class GRAVITATE_TESTER {
 		}
 
 		return $tests;
+	}
+
+
+	public static function remove_comments($contents='')
+	{
+		$contents = preg_replace('!/\*.*?\*/!s', '', $contents);
+		$contents = preg_replace('/\n\s*\n/', "\n", $contents);
+		$contents = preg_replace('![ \t]*//.*[ \t]*[\r\n]!', '', $contents);
+
+		return $contents;
 	}
 
 
@@ -423,6 +442,20 @@ class GRAVITATE_TESTER {
 			cursor: text;
 			width: 100%;
 		}
+		#the-list td .fix-button {
+			display: none;
+		}
+		#the-list td.info {
+			width:40%;
+		}
+		#the-list td.status {
+			width:50%;
+		}
+		#the-list td.actions {
+			width:10%;
+			white-space:nowrap;
+			text-align:right;
+		}
 		</style>
 
 		<div style="text-align:right;">
@@ -448,15 +481,18 @@ class GRAVITATE_TESTER {
 			<tbody id="the-list">
 				<?php foreach ($enabled_tests as $test) { ?>
 					<?php if(!empty($tests[$test])) { ?>
-					<tr class="event active">
-						<td style="width:40%;">
+					<tr class="event active test-<?php echo $tests[$test]['id']; ?>">
+						<td class="info">
 							<?php echo $tests[$test]['description']; ?>
 						</td>
-						<td style="width:50%;" class="test-<?php echo $tests[$test]['id']; ?>">
+						<td class="status">
 							<h4 style="margin:0;"></h4>
 							<span></span><input readonly="readonly">
 						</td>
-						<td style="width:10%;white-space:nowrap;">
+						<td class="actions">
+							<?php if($tests[$test]['can_fix']){ ?>
+								<button class="button fix-button" onclick="run_ajax_fix('<?php echo $tests[$test]['id']; ?>');">Fix</button>
+							<?php } ?>
 							<button class="button" onclick="run_ajax_test('<?php echo $tests[$test]['id']; ?>', '<?php echo $tests[$test]['type']; ?>', '<?php echo $tests[$test]['urls']; ?>', 500);">Run Test</button>
 						</td>
 					</tr>
@@ -489,13 +525,32 @@ class GRAVITATE_TESTER {
 			}
 		}
 
+		function run_ajax_fix(test)
+		{
+			jQuery.post('<?php echo admin_url("admin-ajax.php");?>',
+			{
+				'action': 'grav_run_fix_test',
+				'grav_test': test
+			},
+			function(response)
+			{
+				test_results(test, response);
+
+			}).fail(function()
+			{
+				jQuery('.test-' + test + ' .status h4').removeClass('passed').removeClass('failed').removeClass('testing').html('Unknown');
+				jQuery('.test-' + test + ' .status span').html('Error Getting Response from Fix.');
+			});
+		}
+
 		function run_ajax_test(test, type, urls, msec)
 		{
-			jQuery('.test-' + test + ' h4').removeClass('failed').removeClass('passed').addClass('testing').html('Testing...');
+			jQuery('.test-' + test + ' .status h4').removeClass('failed').removeClass('passed').addClass('testing').html('Testing...');
 
-			jQuery('.test-' + test + ' span').html('');
-			jQuery('.test-' + test + ' input').hide();
-			jQuery('.test-' + test + ' input').val('');
+			jQuery('.test-' + test + ' .status span').html('');
+			jQuery('.test-' + test + ' .status input').hide();
+			jQuery('.test-' + test + ' .status input').val('');
+			jQuery('.test-' + test + ' .actions .fix-button').hide();
 
 			setTimeout(function(){
 
@@ -512,8 +567,8 @@ class GRAVITATE_TESTER {
 
 					}).fail(function()
 					{
-	    				jQuery('.test-' + test + ' h4').removeClass('passed').removeClass('failed').removeClass('testing').html('Unknown');
-						jQuery('.test-' + test + ' span').html('Error Getting Response from Test.');
+	    				jQuery('.test-' + test + ' .status h4').removeClass('passed').removeClass('failed').removeClass('testing').html('Unknown');
+						jQuery('.test-' + test + ' .status span').html('Error Getting Response from Test.');
 	  				});
 	  			}
 	  			else if(type === 'js')
@@ -566,32 +621,35 @@ class GRAVITATE_TESTER {
 				{
 					if(data['pass'] === true)
 					{
-						jQuery('.test-' + test + ' h4').addClass('passed').removeClass('failed').removeClass('testing').html('Passed');
+						jQuery('.test-' + test + ' .status h4').addClass('passed').removeClass('failed').removeClass('testing').html('Passed');
+						jQuery('.test-' + test + ' .actions .fix-button').css('display', 'none');
 					}
 					else if(data['pass'] === false)
 					{
-						jQuery('.test-' + test + ' h4').addClass('failed').removeClass('passed').removeClass('testing').html('Failed');
+						jQuery('.test-' + test + ' .status h4').addClass('failed').removeClass('passed').removeClass('testing').html('Failed');
+						jQuery('.test-' + test + ' .actions .fix-button').css('display', 'inline-block');
 					}
 					else
 					{
-						jQuery('.test-' + test + ' h4').removeClass('failed').removeClass('passed').removeClass('testing').html('Unknown');
+						jQuery('.test-' + test + ' .status h4').removeClass('failed').removeClass('passed').removeClass('testing').html('Unknown');
+						jQuery('.test-' + test + ' .actions .fix-button').css('display', 'none');
 					}
 
 					if(data['message'])
 					{
-						jQuery('.test-' + test + ' span').html(data['message']);
+						jQuery('.test-' + test + ' .status span').html(data['message']);
 					}
 
 					if(data['location'])
 					{
-						jQuery('.test-' + test + ' input').val(data['location']);
-						jQuery('.test-' + test + ' input').show();
+						jQuery('.test-' + test + ' .status input').val(data['location']);
+						jQuery('.test-' + test + ' .status input').show();
 					}
 				}
 				else
 				{
-					jQuery('.test-' + test + ' h4').removeClass('passed').removeClass('failed').removeClass('testing').html('Unknown');
-					jQuery('.test-' + test + ' span').html('Error Getting Response from Test.');
+					jQuery('.test-' + test + ' .status h4').removeClass('passed').removeClass('failed').removeClass('testing').html('Unknown');
+					jQuery('.test-' + test + ' .status span').html('Error Getting Response from Test.');
 				}
 			}
 		}
@@ -629,6 +687,34 @@ class GRAVITATE_TESTER {
 
 				$test_obj = new $test_class();
 				$response = $test_obj->run();
+				if(!empty($response))
+				{
+					echo json_encode($response);
+					exit;
+				}
+			}
+		}
+		else
+		{
+			echo 'Error: You Must be logged in and have the correct permissions to do this.';
+		}
+		exit;
+	}
+
+	public static function ajax_run_fix_test()
+	{
+		if(!empty($_POST['grav_test']) && is_user_logged_in() && current_user_can('manage_options'))
+		{
+			$tests = self::get_tests();
+			$enabled_tests = self::get_enabled_tests();
+
+			if(!empty($tests[$_POST['grav_test']]))
+			{
+				$test = $tests[$_POST['grav_test']];
+				$test_class = $test['class'];
+
+				$test_obj = new $test_class();
+				$response = $test_obj->fix();
 				if(!empty($response))
 				{
 					echo json_encode($response);
@@ -700,6 +786,28 @@ class YourCompanyNameCustomTestName
 		{
 			return array('pass' => null, 'message' => 'Unknown Error', 'location' => '');
 		}
+	}
+
+	public function can_fix() /* OPTIONAL */
+	{
+		/* Run code here to see if the issue is Fixable */
+		if(true)
+		{
+			return true;
+		}
+
+		return false;
+	}
+
+	public function fix() /* OPTIONAL */
+	{
+		/* Run code here to Fix issue */
+		if(true)
+		{
+			return array('pass' => true, 'message' => 'Issue was Fixed.', 'location' => '');
+		}
+
+		return array('pass' => false, 'message' => 'Unable to Fix Issue', 'location' => '');
 	}
 }
 
