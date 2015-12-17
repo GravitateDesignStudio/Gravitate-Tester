@@ -43,7 +43,7 @@ class GRAVITATE_TESTER {
 				{
 					$test_class = $tests[$test]['class'];
 					$test_obj = new $test_class();
-					$id = dechex(crc32($tests[$test]['file']));
+					$id = sanitize_title($tests[$test]['label']).'-'.dechex(crc32($tests[$test]['file']));
 					$test_obj->id = $id;
 
 					if(method_exists($test_obj,'js_head'))
