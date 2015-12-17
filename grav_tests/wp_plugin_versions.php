@@ -1,6 +1,6 @@
 <?php
 
-class GRAVITATE_TEST_WP_PLUGINS_VERSIONS
+class GRAV_TEST_WP_PLUGINS_VERSIONS
 {
 	public function type()
 	{

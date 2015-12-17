@@ -1,6 +1,6 @@
 <?php
 
-class GRAVITATE_TEST_WP_DEBUG
+class GRAV_TEST_WP_DEBUG
 {
 	public function type()
 	{
@@ -62,7 +62,7 @@ class GRAVITATE_TEST_WP_DEBUG
 		{
 			if($contents = file_get_contents($path))
 			{
-				$contents = GRAVITATE_TESTER::remove_comments($contents);
+				$contents = GRAV_TESTS::remove_comments($contents);
 
 				if(preg_match('/define[^;]*WP_DEBUG.*(true|TRUE)[^;]*/s', $contents, $matches))
 				{

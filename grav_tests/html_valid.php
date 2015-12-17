@@ -1,6 +1,6 @@
 <?php
 
-class GRAVITATE_TEST_HTML_VALID
+class GRAV_TEST_HTML_VALID
 {
 	public function type()
 	{
@@ -29,14 +29,14 @@ class GRAVITATE_TEST_HTML_VALID
 
 	public function run()
 	{
-		if(GRAVITATE_TESTER::guess_environment() === 'local')
+		if(GRAV_TESTS::guess_environment() === 'local')
 		{
 			return array('pass' => null, 'message' => 'Cannot Validate when using Localhost. Try on a valid Hostname.', 'location' => $item->url);
 		}
 
 		$loaded_pages = 0;
 
-		$urls = GRAVITATE_TESTER::get_general_page_urls();
+		$urls = GRAV_TESTS::get_general_page_urls();
 
 		foreach ($urls as $url)
 		{

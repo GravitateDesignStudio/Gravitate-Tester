@@ -1,6 +1,6 @@
 <?php
 
-class GRAVITATE_TEST_WP_HEAD_FOOTER
+class GRAV_TEST_WP_HEAD_FOOTER
 {
 	public function type()
 	{
@@ -34,7 +34,7 @@ class GRAVITATE_TEST_WP_HEAD_FOOTER
 
 		if($header)
 		{
-			$header = GRAVITATE_TESTER::remove_comments($header);
+			$header = GRAV_TESTS::remove_comments($header);
 		}
 		else
 		{
@@ -55,7 +55,7 @@ class GRAVITATE_TEST_WP_HEAD_FOOTER
 
 		if($footer)
 		{
-			$footer = GRAVITATE_TESTER::remove_comments($footer);
+			$footer = GRAV_TESTS::remove_comments($footer);
 		}
 		else
 		{

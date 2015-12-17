@@ -1,6 +1,6 @@
 <?php
 
-class GRAVITATE_TEST_JS_ERRORS
+class GRAV_TEST_JS_ERRORS
 {
 	public function type()
 	{
@@ -29,7 +29,13 @@ class GRAVITATE_TEST_JS_ERRORS
 
 	public function js_urls()
 	{
-		return GRAVITATE_TESTER::get_general_page_urls();
+		$urls = GRAV_TESTS::get_general_page_urls();
+		$js_urls = array();
+		foreach ($urls as $url)
+		{
+			$js_urls[] = array('url' => $url, 'with_admin_bar' => false, 'width' => 800, 'height' => 600);
+		}
+		return $js_urls;
 	}
 
 	public function js_head()
@@ -39,6 +45,7 @@ class GRAVITATE_TEST_JS_ERRORS
 			var _grav_test_page_has_js_error = false;
 			window.onerror = function(error, file, linenumber)
 			{
+				alert(error, file, linenumber);
 				_grav_test_page_has_js_error = true;
 		  		parent.grav_tests_js_pass('<?php echo $this->id;?>', false, 'JS Error loading ('+window.location.href+'): '+ error, file+' (Line: '+linenumber+')');
 			};

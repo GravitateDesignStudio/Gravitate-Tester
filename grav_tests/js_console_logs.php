@@ -1,6 +1,6 @@
 <?php
 
-class GRAVITATE_TEST_JS_CONSOLE_LOGS
+class GRAV_TEST_JS_CONSOLE_LOGS
 {
 	public function type()
 	{
@@ -29,7 +29,13 @@ class GRAVITATE_TEST_JS_CONSOLE_LOGS
 
 	public function js_urls()
 	{
-		return GRAVITATE_TESTER::get_general_page_urls();
+		$urls = GRAV_TESTS::get_general_page_urls();
+		$js_urls = array();
+		foreach ($urls as $url)
+		{
+			$js_urls[] = array('url' => $url, 'with_admin_bar' => false, 'width' => 860, 'height' => 680);
+		}
+		return $js_urls;
 	}
 
 	public function js_head()
@@ -38,6 +44,12 @@ class GRAVITATE_TEST_JS_CONSOLE_LOGS
 		<script type="text/javascript">
 
 			var _grav_test_page_has_js_log = false;
+
+			var _grav_test_page_has_js_error = false;
+			window.onerror = function(error, file, linenumber)
+			{
+				_grav_test_page_has_js_error = true;
+			};
 
 			(function(){
 			    var oldLog = console.log;
@@ -52,7 +64,14 @@ class GRAVITATE_TEST_JS_CONSOLE_LOGS
 			setTimeout(function(){
 				if(_grav_test_page_has_js_log !== true)
 				{
-		  			parent.grav_tests_js_pass('<?php echo $this->id;?>', true, 'No Console Logs Detected', '');
+					if(_grav_test_page_has_js_error)
+					{
+						parent.grav_tests_js_pass('<?php echo $this->id;?>', null, 'No Logs Detected, but found Errors. Resolve the Errors first', '');
+					}
+					else
+					{
+		  				parent.grav_tests_js_pass('<?php echo $this->id;?>', true, 'No Console Logs Detected', '');
+		  			}
 		  		}
 		  	}, 10000);
 
