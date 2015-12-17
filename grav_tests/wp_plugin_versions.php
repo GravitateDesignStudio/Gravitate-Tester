@@ -7,9 +7,19 @@ class GRAVITATE_TEST_WP_PLUGINS_VERSIONS
 		return 'php';
 	}
 
+	public function environment()
+	{
+		return 'all';
+	}
+
 	public function group()
 	{
 		return 'WordPress Tests';
+	}
+
+	public function label()
+	{
+		return 'Plugins Updated';
 	}
 
 	public function description()

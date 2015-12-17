@@ -7,9 +7,19 @@ class GRAVITATE_TEST_JS_CONSOLE_LOGS
 		return 'js';
 	}
 
+	public function environment()
+	{
+		return 'staging,production';
+	}
+
 	public function group()
 	{
 		return 'JS Tests';
+	}
+
+	public function label()
+	{
+		return 'JS Console Logs';
 	}
 
 	public function description()
@@ -19,9 +29,7 @@ class GRAVITATE_TEST_JS_CONSOLE_LOGS
 
 	public function js_urls()
 	{
-		$urls = GRAVITATE_TESTER::get_general_page_urls();
-
-		return implode(',', $urls);
+		return GRAVITATE_TESTER::get_general_page_urls();
 	}
 
 	public function js_head()

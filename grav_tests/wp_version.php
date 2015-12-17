@@ -7,9 +7,19 @@ class GRAVITATE_TEST_WP_VERSION
 		return 'php';
 	}
 
+	public function environment()
+	{
+		return 'all';
+	}
+
 	public function group()
 	{
 		return 'WordPress Tests';
+	}
+
+	public function label()
+	{
+		return 'WP Updated';
 	}
 
 	public function description()

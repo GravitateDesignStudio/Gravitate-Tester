@@ -7,9 +7,19 @@ class GRAVITATE_TEST_WP_HEAD_FOOTER
 		return 'php';
 	}
 
+	public function environment()
+	{
+		return 'all';
+	}
+
 	public function group()
 	{
 		return 'WordPress Tests';
+	}
+
+	public function label()
+	{
+		return 'WP Head/Footer';
 	}
 
 	public function description()

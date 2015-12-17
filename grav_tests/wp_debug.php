@@ -7,9 +7,19 @@ class GRAVITATE_TEST_WP_DEBUG
 		return 'php';
 	}
 
+	public function environment()
+	{
+		return 'staging,production';
+	}
+
 	public function group()
 	{
 		return 'WordPress Tests';
+	}
+
+	public function label()
+	{
+		return 'WP Debug';
 	}
 
 	public function description()

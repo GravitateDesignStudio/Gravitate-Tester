@@ -139,11 +139,16 @@ class GRAVITATE_TESTER {
 				$test = new $test_class();
 				$id = dechex(crc32($file));
 
-				$tests[$id] = array('id' => $id, 'type' => $test->type(), 'group' => $test->group(), 'can_fix' => false, 'urls' => '', 'file' => $file, 'class' => $test_class, 'description' => $test->description());
+				$tests[$id] = array('id' => $id, 'type' => $test->type(), 'environment' => 'all', 'group' => $test->group(), 'can_fix' => false, 'urls' => '', 'file' => $file, 'class' => $test_class, 'label' => $test->label(), 'description' => $test->description());
 
 				if($test->type() === 'js' && method_exists($test,'js_urls'))
 				{
-					$tests[$id]['urls'] = $test->js_urls();
+					$tests[$id]['urls'] = implode(',', array_map('trim', $test->js_urls()));
+				}
+
+				if(method_exists($test,'environment'))
+				{
+					$tests[$id]['environment'] = $test->environment();
 				}
 
 				if(method_exists($test,'can_fix') && method_exists($test,'fix'))
@@ -412,6 +417,59 @@ class GRAVITATE_TESTER {
 	}
 
 
+	public static function guess_environment()
+	{
+
+		$ip_sub = substr(self::get_real_ip(), 0, 3);
+
+		if($ip_sub == '127')
+		{
+			return 'local';
+		}
+
+		if($ip_sub === '10.' || $ip_sub === '192')
+		{
+			return 'dev';
+		}
+
+		if(count(explode('.',$_SERVER['HTTP_HOST'])) > 2 && strpos($_SERVER['HTTP_HOST'], 'www.') === false)
+		{
+			return 'staging';
+		}
+
+		if(count(explode('.',$_SERVER['HTTP_HOST'])) === 2 || strpos($_SERVER['HTTP_HOST'], 'www.') !== false)
+		{
+			return 'production';
+		}
+
+		return 'dev';
+	}
+
+
+	/**
+	 * Returns the Real IP from the user
+	 *
+	 * @return string
+	 */
+	public static function get_real_ip()
+    {
+        foreach (array('HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'REMOTE_ADDR') as $server_ip)
+        {
+
+            if(!empty($_SERVER[$server_ip]) && is_string($_SERVER[$server_ip]))
+            {
+            	$ips = explode(',', $_SERVER[$server_ip]);
+                if($ip = trim(reset($ips)))
+	            {
+	            	return $ip;
+	            }
+            }
+        }
+
+        return $_SERVER['REMOTE_ADDR'];
+    }
+
+
 
 	private static function run_tests()
 	{
@@ -419,6 +477,24 @@ class GRAVITATE_TESTER {
 
 		$tests = self::get_tests();
 		$enabled_tests = self::get_enabled_tests();
+
+		$environments = array('all', 'local', 'dev', 'staging', 'production');
+
+		$environment_default = self::guess_environment();
+
+		if($_SERVER['REMOTE_ADDR'] === '127.0.0.1')
+		{
+
+		}
+
+		foreach ($tests as $test)
+		{
+			$environments = array_merge($environments, explode(',', $test['environment']));
+		}
+
+		$environments = array_unique($environments);
+
+		unset($environments[array_search('all', $environments)]);
 
 		?>
 
@@ -445,8 +521,24 @@ class GRAVITATE_TESTER {
 		#the-list td .fix-button {
 			display: none;
 		}
-		#the-list td.info {
+		#the-list th.info {
 			width:40%;
+			padding-left: 12px;
+			color: #999;
+			padding: 10px 9px;
+		}
+		#the-list th.info h4 {
+			color: #1B5D8A;
+			font-weight: bold;
+		}
+		#the-list tr.inactive th {
+			border-left-color: #DDD;
+		}
+		#the-list tr.inactive th, #the-list tr.inactive td {
+			background-color: #fcfcfc;
+		}
+		#the-list tr.inactive th h4, #the-list tr.inactive th {
+			color: #BBB;
 		}
 		#the-list td.status {
 			width:50%;
@@ -458,7 +550,14 @@ class GRAVITATE_TESTER {
 		}
 		</style>
 
-		<div style="text-align:right;">
+
+		<div style="text-align:left; width:50%;">
+			<label>Environment</label>
+			<select id="environment" autocomplete="off">
+				<?php foreach($environments as $environment){ ?>
+					<option <?php selected($environment_default, $environment);?>><?php echo $environment;?></option>
+				<?php } ?>
+			</select> &nbsp;
 			<button onclick="run_all_tests();" class="button button-primary">Run All Tests</a>
 		</div>
 		<br>
@@ -481,8 +580,9 @@ class GRAVITATE_TESTER {
 			<tbody id="the-list">
 				<?php foreach ($enabled_tests as $test) { ?>
 					<?php if(!empty($tests[$test])) { ?>
-					<tr class="event active test-<?php echo $tests[$test]['id']; ?>">
-						<td class="info">
+					<tr class="event active test-<?php echo $tests[$test]['id']; ?> environment-<?php echo implode(' environment-', explode(',', $tests[$test]['environment']));?>">
+						<th class="info check-column">
+							<h4 style="margin:0;"><?php echo $tests[$test]['label']; ?></h4>
 							<?php echo $tests[$test]['description']; ?>
 						</td>
 						<td class="status">
@@ -505,11 +605,31 @@ class GRAVITATE_TESTER {
 
 		jQuery('#the-list td input').hide();
 
+		function update_environments(val)
+		{
+			if(val === 'all')
+			{
+				jQuery('#the-list tr').css('opacity', 1).removeClass('inactive');
+			}
+			else
+			{
+				jQuery('#the-list tr').addClass('inactive');
+				jQuery('#the-list tr.environment-all, #the-list tr.environment-'+val).removeClass('inactive');
+			}
+		}
+
+		jQuery('#environment').on('change', function()
+		{
+			update_environments(jQuery(this).val());
+		});
+
+		update_environments(jQuery('#environment').val());
+
 		var grav_tests = [];
 		var grav_js_tests_failed = [];
 		<?php foreach ($enabled_tests as $num => $test) { ?>
 			<?php if(!empty($tests[$test])) { ?>
-				grav_tests[<?php echo $num;?>] = {'id': '<?php echo $tests[$test]['id'];?>', 'type': '<?php echo $tests[$test]['type'];?>', 'urls': '<?php echo $tests[$test]['urls'];?>'};
+				grav_tests[<?php echo $num;?>] = {'id': '<?php echo $tests[$test]['id'];?>', 'type': '<?php echo $tests[$test]['type'];?>', 'environment': '<?php echo $tests[$test]['environment'];?>', 'urls': '<?php echo $tests[$test]['urls'];?>'};
 			<?php } ?>
 			<?php if(!empty($tests[$test]['type']) && $tests[$test]['type'] === 'js') { ?>
 				grav_js_tests_failed['<?php echo $tests[$test]['id'];?>'] = false;
@@ -518,10 +638,13 @@ class GRAVITATE_TESTER {
 
 		function run_all_tests()
 		{
+			var environment = jQuery('#environment').val();
 			for(var t in grav_tests)
 			{
-				console.log(grav_tests[t]['id']);
-				run_ajax_test(grav_tests[t]['id'], grav_tests[t]['type'], grav_tests[t]['urls'], 300);
+				if(grav_tests[t]['environment'] === 'all' || grav_tests[t]['environment'].indexOf(environment) > -1)
+				{
+					run_ajax_test(grav_tests[t]['id'], grav_tests[t]['type'], grav_tests[t]['urls'], 300);
+				}
 			}
 		}
 
@@ -587,7 +710,7 @@ class GRAVITATE_TESTER {
 	  						{
 	  							jQuery('#'+url_id).remove();
 	  						}
-	  						jQuery('<iframe id="'+url_id+'" src="'+url+(url.indexOf('?') > -1 ? '&' : '?')+'grav_js_test='+test+'">').appendTo('body').css('display', 'none');
+	  						jQuery('<iframe id="'+url_id+'" name="'+url_id+'" src="'+url+(url.indexOf('?') > -1 ? '&' : '?')+'grav_js_test='+test+'">').appendTo('body').css('display', 'none');
 	  					}
 	  				}
 	  			}

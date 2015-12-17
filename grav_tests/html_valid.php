@@ -7,9 +7,19 @@ class GRAVITATE_TEST_HTML_VALID
 		return 'php';
 	}
 
+	public function environment()
+	{
+		return 'dev,staging,production';
+	}
+
 	public function group()
 	{
 		return 'HTML Tests';
+	}
+
+	public function label()
+	{
+		return 'HTML Valid';
 	}
 
 	public function description()
@@ -19,9 +29,9 @@ class GRAVITATE_TEST_HTML_VALID
 
 	public function run()
 	{
-		if(gethostbyname($_SERVER['HTTP_HOST']) === '127.0.0.1')
+		if(GRAVITATE_TESTER::guess_environment() === 'local')
 		{
-			return array('pass' => null, 'message' => 'Cannot Validate when using Localhost.', 'location' => $item->url);
+			return array('pass' => null, 'message' => 'Cannot Validate when using Localhost. Try on a valid Hostname.', 'location' => $item->url);
 		}
 
 		$loaded_pages = 0;

@@ -7,9 +7,19 @@ class GRAVITATE_TEST_JS_ERRORS
 		return 'js';
 	}
 
+	public function environment()
+	{
+		return 'all';
+	}
+
 	public function group()
 	{
 		return 'JS Tests';
+	}
+
+	public function label()
+	{
+		return 'JS Errors';
 	}
 
 	public function description()
@@ -19,9 +29,7 @@ class GRAVITATE_TEST_JS_ERRORS
 
 	public function js_urls()
 	{
-		$urls = GRAVITATE_TESTER::get_general_page_urls();
-
-		return implode(',', $urls);
+		return GRAVITATE_TESTER::get_general_page_urls();
 	}
 
 	public function js_head()
