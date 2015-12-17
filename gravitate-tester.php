@@ -178,6 +178,8 @@ class GRAVITATE_TESTER {
 			}
 		}
 
+		sort($tests);
+
 		return $tests;
 	}
 
