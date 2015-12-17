@@ -137,7 +137,7 @@ class GRAVITATE_TESTER {
 				$test_class = end($classes);
 
 				$test = new $test_class();
-				$id = dechex(crc32($file));
+				$id = sanitize_title($test->label()).'-'.dechex(crc32($file));
 
 				$tests[$id] = array('id' => $id, 'type' => $test->type(), 'environment' => 'all', 'group' => $test->group(), 'can_fix' => false, 'urls' => '', 'file' => $file, 'class' => $test_class, 'label' => $test->label(), 'description' => $test->description());
 
@@ -160,6 +160,8 @@ class GRAVITATE_TESTER {
 				}
 			}
 		}
+
+		ksort($tests);
 
 		return $tests;
 	}
