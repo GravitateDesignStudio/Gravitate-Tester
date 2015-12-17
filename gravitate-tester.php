@@ -48,13 +48,25 @@ class GRAVITATE_TESTER {
 
 					if(method_exists($test_obj,'js_head'))
 					{
-						add_action('wp_head', array($test_obj, 'js_head'));
+						add_action('wp_head', array($test_obj, 'js_head'), 0);
+
 					}
 
 					if(method_exists($test_obj,'js_footer'))
 					{
 						add_action('wp_footer', array($test_obj, 'js_footer'));
 					}
+
+					add_filter('show_admin_bar', '__return_false');
+
+					foreach ($_COOKIE as $cookie_key => $cookie_value)
+					{
+						if($cookie_key !== 'wordpress_test_cookie' && strpos($cookie_key, 'wordpress_') !== false)
+						{
+							unset($_COOKIE[$cookie_key]);
+						}
+					}
+
 				}
 			}
 		}
@@ -198,7 +210,8 @@ class GRAVITATE_TESTER {
 
 	public static function get_general_page_urls()
 	{
-		$urls = array(site_url(),site_url().'/?s=grav-test',site_url().'/404-grav-test-url');
+		$site_url = site_url('/');
+		$urls = array($site_url,$site_url.'?s=grav-test',$site_url.'404-grav-test-url');
 
 		if($menus = get_registered_nav_menus())
 		{
@@ -218,7 +231,7 @@ class GRAVITATE_TESTER {
 						{
 							foreach ($items as $item)
 							{
-								if(strpos($item->url, site_url()) !== false)
+								if(strpos($item->url, site_url()) !== false && count($urls) <= 10)
 								{
 									$urls[] = $item->url;
 								}
@@ -236,24 +249,40 @@ class GRAVITATE_TESTER {
 					{
 						foreach ($matches[1] as $url)
 						{
-							$urls[] = $url;
+							if(count($urls) <= 10)
+							{
+								$urls[] = $url;
+							}
 						}
 					}
 				}
 			}
 		}
 
-		if(count($urls) < 2)
+		if(count($urls) <= 10)
 		{
-			foreach(get_pages(array('number' => 10)) as $page)
+			foreach(get_pages(array('number' => 6)) as $page)
 			{
 				$urls[] = get_permalink($page->ID);
 			}
 		}
 
-		foreach(get_posts(array('posts_per_page' => 2)) as $post)
+		foreach(get_posts(array('posts_per_page' => 1)) as $post)
 		{
 			$urls[] = get_permalink($post->ID);
+		}
+
+		$args = array('public' => true, '_builtin' => false);
+
+		if($custom_post_types = get_post_types(array('public' => true, '_builtin' => false)))
+		{
+			foreach ($custom_post_types as $post_type)
+			{
+				foreach(get_posts(array('post_type' => $post_type, 'posts_per_page' => 1)) as $post)
+				{
+					$urls[] = get_permalink($post->ID);
+				}
+			}
 		}
 
 		return array_unique($urls);
@@ -714,11 +743,19 @@ class GRAVITATE_TESTER {
 	  						{
 	  							jQuery('#'+url_id).remove();
 	  						}
-	  						jQuery('<iframe id="'+url_id+'" name="'+url_id+'" src="'+url+(url.indexOf('?') > -1 ? '&' : '?')+'grav_js_test='+test+'">').appendTo('body').css('display', 'none');
+	  						load_js_test_frame(test, url_id, url, u);
+	  						//jQuery('<iframe id="'+url_id+'" name="'+url_id+'" src="'+url+(url.indexOf('?') > -1 ? '&' : '?')+'grav_js_test='+test+'">').appendTo('body').css('display', 'none');
 	  					}
 	  				}
 	  			}
 			}, msec);
+		}
+
+		function load_js_test_frame(test, url_id, url, sec)
+		{
+			setTimeout(function(){
+				jQuery('<iframe id="'+url_id+'" name="'+url_id+'" src="'+url+(url.indexOf('?') > -1 ? '&' : '?')+'grav_js_test='+test+'">').appendTo('body').css('display', 'none');
+			}, 1000*sec);
 		}
 
 		function test_results(test, response)

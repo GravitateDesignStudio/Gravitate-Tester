@@ -54,9 +54,7 @@ class GRAVITATE_TEST_JS_CONSOLE_LOGS
 				{
 		  			parent.grav_tests_js_pass('<?php echo $this->id;?>', true, 'No Console Logs Detected', '');
 		  		}
-		  	}, 5000);
-
-
+		  	}, 10000);
 
 		</script>
 		<?php

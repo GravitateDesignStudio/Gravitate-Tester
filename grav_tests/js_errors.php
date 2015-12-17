@@ -48,7 +48,7 @@ class GRAVITATE_TEST_JS_ERRORS
 				{
 		  			parent.grav_tests_js_pass('<?php echo $this->id;?>', true, 'No JS Errors Detected', '');
 		  		}
-		  	}, 5000);
+		  	}, 10000);
 		</script>
 		<?php
 	}
