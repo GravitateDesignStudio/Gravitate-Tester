@@ -885,9 +885,19 @@ class YourCompanyNameCustomTestName
 		return 'php'; /* php | js */
 	}
 
+	public function environment()
+	{
+		return 'local,dev,staging,production';  // you could also use "all"
+	}
+
 	public function group()
 	{
 		return 'WordPress Tests';
+	}
+
+	public function label()
+	{
+		return 'Small Label Here';
 	}
 
 	public function description()
@@ -950,9 +960,19 @@ class YourCompanyNameCustomTestName
 		return 'js';
 	}
 
+	public function environment()
+	{
+		return 'local,dev,staging,production';  // you could also use "all"
+	}
+
 	public function group()
 	{
 		return 'JS Tests';
+	}
+
+	public function label()
+	{
+		return 'JS Errors';
 	}
 
 	public function description()
