@@ -80,7 +80,7 @@ class GRAVITATE_TEST_WP_PLUGINS_VERSIONS
 
 				if(!empty($version) && !empty($plugin['Version']) && $plugin['Version'] < $version)
 				{
-					return array('pass' => false, 'message' => 'Plugin is not Up to Date ('.$plugin['Name'].')', 'location' => $plugin_slug);
+					return array('pass' => false, 'message' => 'Plugin is not Up to Date ('.$plugin['Name'].') Latest version is '.$version, 'location' => $plugin_slug);
 				}
 			}
 			return array('pass' => true, 'message' => 'All WordPress Plugins are Up to Date', 'location' => '');

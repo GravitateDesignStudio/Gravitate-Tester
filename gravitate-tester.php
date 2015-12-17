@@ -779,7 +779,8 @@ class GRAVITATE_TESTER {
 
 		function grav_tests_js_pass(test, pass, message, location)
 		{
-			if(pass && grav_js_tests_failed[test] === true)
+			/* If already Failed Test then ignore all other responses */
+			if(grav_js_tests_failed[test] === true)
 			{
 				return;
 			}
