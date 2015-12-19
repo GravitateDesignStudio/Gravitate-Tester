@@ -261,12 +261,27 @@ class GRAV_TESTS {
 			}
 		}
 
-		if(count($urls) <= 10)
+		$urls = array_merge($urls, self::get_template_page_urls());
+
+		return array_unique($urls);
+	}
+
+
+	public static function get_template_page_urls()
+	{
+		$site_url = site_url('/');
+		$urls = array($site_url,$site_url.'?s=grav-test',$site_url.'404-grav-test-url');
+
+		$urls = array_merge($urls, self::get_post_type_page_urls());
+
+		return array_unique($urls);
+	}
+
+	public static function get_post_type_page_urls()
+	{
+		foreach(get_pages(array('number' => 1)) as $page)
 		{
-			foreach(get_pages(array('number' => 2)) as $page)
-			{
-				$urls[] = get_permalink($page->ID);
-			}
+			$urls[] = get_permalink($page->ID);
 		}
 
 		foreach(get_posts(array('posts_per_page' => 1)) as $post)
@@ -274,11 +289,14 @@ class GRAV_TESTS {
 			$urls[] = get_permalink($post->ID);
 		}
 
-		$args = array('public' => true, '_builtin' => false);
+		$post_types = get_post_types(array('public' => true, '_builtin' => false));
 
-		if($custom_post_types = get_post_types(array('public' => true, '_builtin' => false)))
+		if(!empty($post_types))
 		{
-			foreach ($custom_post_types as $post_type)
+			$post_types[] = 'post';
+			$post_types[] = 'page';
+
+			foreach ($post_types as $post_type)
 			{
 				foreach(get_posts(array('post_type' => $post_type, 'posts_per_page' => 1)) as $post)
 				{
@@ -517,11 +535,6 @@ class GRAV_TESTS {
 
 		$environment_default = self::guess_environment();
 
-		if($_SERVER['REMOTE_ADDR'] === '127.0.0.1')
-		{
-
-		}
-
 		foreach ($tests as $test)
 		{
 			$environments = array_merge($environments, explode(',', $test['environment']));
@@ -538,17 +551,17 @@ class GRAV_TESTS {
 			color: #0A0;
 		}
 		.failed {
-			color: #A00;
+			color: #D00;
 		}
 		.testing {
 			color: #999;
 		}
-		#the-list td input {
+		#the-list .errors_list input {
 			display: block;
 			border: 1px dashed #c8c8c8;
 			padding: 0 6px;
 			background-color: #fcfcfc;
-			margin-top: 3px;
+			margin: 3px 0 0;
 			font-size: 0.7rem;
 			cursor: text;
 			width: 100%;
@@ -557,7 +570,7 @@ class GRAV_TESTS {
 			display: none;
 		}
 		#the-list th.info {
-			width:40%;
+			width:20%;
 			padding-left: 12px;
 			color: #999;
 			padding: 10px 9px;
@@ -575,13 +588,114 @@ class GRAV_TESTS {
 		#the-list tr.inactive th h4, #the-list tr.inactive th {
 			color: #BBB;
 		}
+		#the-list td.description {
+			width:40%;
+		}
 		#the-list td.status {
-			width:50%;
+			width:40%;
+			max-width: 200px;
+			padding: 0;
+		}
+		#the-list td.status h4 {
+			/*padding-right: 8px;*/
+			height: 14px;
+			margin: 2px 0px 0px;
+			font-size: 13px;
+			display: inline-block;
+		}
+		#the-list td a.show_errors, #the-list td a.hide_errors {
+			display: none;
+			margin-left: 8px;
+			color: #D7825C;
+			font-weight: normal;
+		}
+		#the-list td a.show_errors:hover, #the-list td a.hide_errors:hover {
+			text-decoration: underline;
+		}
+		#the-list td.status span {
+			font-size: 11px;
+			display: block;
+			line-height: 12px;
+		}
+		#the-list .errors_list {
+			height: 0;
+			opacity: 0;
+			transition: all .2s;
+			overflow-y: auto;
+			padding: 0 10px;
+			float: right;
+			width: 80%;
+			max-height: 300px;
+			margin-right: 20px
+		}
+		#the-list .errors_list h4 {
+			margin: 18px 0 0;
+		}
+		#the-list .test-errors th {
+			padding: 0;
+			background-color: #fff0f0;
+			border-color: #FF8394
+		}
+		#the-list .open-errors .errors_list {
+			height: auto;
+			opacity: 1;
+			margin-bottom: 20px;
+		}
+		#the-list .open-errors.test-data td, #the-list .open-errors.test-data th {
+			box-shadow: none;
 		}
 		#the-list td.actions {
 			width:10%;
 			white-space:nowrap;
 			text-align:right;
+		}
+		#the-list td.actions .button {
+			height: 20px;
+			line-height: 18px;
+		}
+
+		.cssload-container {
+			width: 20px;
+			height: 10px;
+			text-align: center;
+			/*display: none;*/
+			display: inline-block;
+		}
+
+		.cssload-double-torus {
+			width: 8px;
+			height: 8px;
+			margin: 0 auto;
+			border: 2px solid;
+			border-radius: 50%;
+			border-color: rgba(0,0,0,0.7) rgba(0, 0, 0, 0.2) rgba(0,0,0,0.2);
+			animation: cssload-spin 1320ms infinite linear;
+				-o-animation: cssload-spin 1320ms infinite linear;
+				-ms-animation: cssload-spin 1320ms infinite linear;
+				-webkit-animation: cssload-spin 1320ms infinite linear;
+				-moz-animation: cssload-spin 1320ms infinite linear;
+		}
+
+
+
+		@keyframes cssload-spin {
+			100%{ transform: rotate(360deg); transform: rotate(360deg); }
+		}
+
+		@-o-keyframes cssload-spin {
+			100%{ -o-transform: rotate(360deg); transform: rotate(360deg); }
+		}
+
+		@-ms-keyframes cssload-spin {
+			100%{ -ms-transform: rotate(360deg); transform: rotate(360deg); }
+		}
+
+		@-webkit-keyframes cssload-spin {
+			100%{ -webkit-transform: rotate(360deg); transform: rotate(360deg); }
+		}
+
+		@-moz-keyframes cssload-spin {
+			100%{ -moz-transform: rotate(360deg); transform: rotate(360deg); }
 		}
 		</style>
 
@@ -603,7 +717,10 @@ class GRAV_TESTS {
 					<th class="manage-column column-cb" id="cb" scope="col">
 						Test
 					</th>
-					<th style="" class="manage-column column-description" id="description" scope="col">
+					<th style="" class="manage-column column-description" scope="col">
+						Description
+					</th>
+					<th style="" class="manage-column column-description" scope="col">
 						Status
 					</th>
 					<th style="" class="manage-column column-description" scope="col">
@@ -615,14 +732,20 @@ class GRAV_TESTS {
 			<tbody id="the-list">
 				<?php foreach ($enabled_tests as $num => $test) { ?>
 					<?php if(!empty($tests[$test])) { ?>
-					<tr class="event active test-<?php echo $tests[$test]['id']; ?> environment-<?php echo implode(' environment-', explode(',', $tests[$test]['environment']));?>">
+					<tr class="event active test-data test-<?php echo $tests[$test]['id']; ?> environment-<?php echo implode(' environment-', explode(',', $tests[$test]['environment']));?>">
 						<th class="info check-column">
 							<h4 style="margin:0;"><?php echo $tests[$test]['label']; ?></h4>
+						</td>
+						<td class="description">
 							<?php echo $tests[$test]['description']; ?>
 						</td>
 						<td class="status">
-							<h4 style="margin:0;"></h4>
-							<span></span><input readonly="readonly">
+							<h4></h4>
+							<div class="cssload-container">
+								<div class="cssload-double-torus"></div>
+							</div>
+							<a class="show_errors" href="#">Show Details</a><a class="hide_errors" href="#">Hide Details</a>
+							<span></span>
 						</td>
 						<td class="actions">
 							<?php if($tests[$test]['can_fix']){ ?>
@@ -631,6 +754,11 @@ class GRAV_TESTS {
 							<button class="button" onclick="run_ajax_test('<?php echo $tests[$test]['id']; ?>', 500);">Run Test</button>
 						</td>
 					</tr>
+					<tr class="event active test-errors test-<?php echo $tests[$test]['id']; ?>_error_list">
+						<th colspan="4" class="check-column">
+							<div class="errors_list"></div>
+						</th>
+					</tr>
 					<?php } ?>
 				<?php } ?>
 			</tbody>
@@ -638,17 +766,17 @@ class GRAV_TESTS {
 
 		<script>
 
-		jQuery('#the-list td input').hide();
+		jQuery('#the-list td input, .cssload-container').hide();
 
 		function update_environments(val)
 		{
 			if(val === 'all')
 			{
-				jQuery('#the-list tr').css('opacity', 1).removeClass('inactive');
+				jQuery('#the-list tr.test-data').css('opacity', 1).removeClass('inactive');
 			}
 			else
 			{
-				jQuery('#the-list tr').addClass('inactive');
+				jQuery('#the-list tr.test-data').addClass('inactive');
 				jQuery('#the-list tr.environment-all, #the-list tr.environment-'+val).removeClass('inactive');
 			}
 		}
@@ -656,6 +784,22 @@ class GRAV_TESTS {
 		jQuery('#environment').on('change', function()
 		{
 			update_environments(jQuery(this).val());
+		});
+
+		jQuery('.status .show_errors').on('click', function(e){
+			e.preventDefault();
+			jQuery(this).hide();
+			jQuery(this).closest('.test-data').addClass('open-errors');
+			jQuery(this).closest('.test-data').next().addClass('open-errors');
+			jQuery(this).parent().find('.hide_errors').show().css('display','inline');
+		});
+
+		jQuery('.status .hide_errors').on('click', function(e){
+			e.preventDefault();
+			jQuery(this).hide();
+			jQuery(this).closest('.test-data').removeClass('open-errors');
+			jQuery(this).closest('.test-data').next().removeClass('open-errors');
+			jQuery(this).parent().find('.show_errors').show().css('display','inline');
 		});
 
 		update_environments(jQuery('#environment').val());
@@ -690,18 +834,30 @@ class GRAV_TESTS {
 
 		function run_ajax_fix(test)
 		{
+			var environment = jQuery('#environment').val();
+
+			jQuery('.test-' + test + ' .status > h4').removeClass('failed').removeClass('passed').addClass('testing').html('Fixing');
+			jQuery('.test-' + test + ' .status .cssload-container').show();
+			jQuery('.test-' + test + ' .status span').html('');
+			jQuery('.test-' + test + ' .status .show_errors, .test-' + test + ' .status .hide_errors').hide();
+			jQuery('.test-' + test).removeClass('open-errors');
+			jQuery('.test-' + test + '_error_list').removeClass('open-errors');
+			jQuery('.test-' + test + '_error_list .errors_list').html('');
+			jQuery('.test-' + test + ' .actions .fix-button').hide();
+
 			jQuery.post('<?php echo admin_url("admin-ajax.php");?>',
 			{
 				'action': 'grav_run_fix_test',
-				'grav_test': test
+				'grav_test': test,
+				'grav_test_environment': environment
 			},
 			function(response)
 			{
-				test_results(test, response);
+				test_results(response, test);
 
 			}).fail(function()
 			{
-				jQuery('.test-' + test + ' .status h4').removeClass('passed').removeClass('failed').removeClass('testing').html('Unknown');
+				jQuery('.test-' + test + ' .status > h4').removeClass('passed').removeClass('failed').removeClass('testing').html('Unknown');
 				jQuery('.test-' + test + ' .status span').html('Error Getting Response from Fix.');
 			});
 		}
@@ -710,11 +866,17 @@ class GRAV_TESTS {
 		{
 			if(grav_tests[test] !== 'undefined')
 			{
-				jQuery('.test-' + test + ' .status h4').removeClass('failed').removeClass('passed').addClass('testing').html('Testing...');
+				var environment = jQuery('#environment').val();
 
+				grav_js_tests_failed[test] = false;
+
+				jQuery('.test-' + test + ' .status > h4').removeClass('failed').removeClass('passed').addClass('testing').html('Testing');
+				jQuery('.test-' + test + ' .status .cssload-container').show();
 				jQuery('.test-' + test + ' .status span').html('');
-				jQuery('.test-' + test + ' .status input').hide();
-				jQuery('.test-' + test + ' .status input').val('');
+				jQuery('.test-' + test + ' .status .show_errors, .test-' + test + ' .status .hide_errors').hide();
+				jQuery('.test-' + test).removeClass('open-errors');
+				jQuery('.test-' + test + '_error_list').removeClass('open-errors');
+				jQuery('.test-' + test + '_error_list .errors_list').html('');
 				jQuery('.test-' + test + ' .actions .fix-button').hide();
 
 				setTimeout(function(){
@@ -724,14 +886,16 @@ class GRAV_TESTS {
 						jQuery.post('<?php echo admin_url("admin-ajax.php");?>',
 						{
 							'action': 'grav_run_test',
-							'grav_test': test
+							'grav_test': test,
+							'grav_test_environment': environment
 						},
 						function(response)
 						{
-							test_results(test, response);
+							test_results(response, test);
 
 						}).fail(function()
 						{
+							jQuery('.test-' + test + ' .status .cssload-container').hide();
 		    				jQuery('.test-' + test + ' .status h4').removeClass('passed').removeClass('failed').removeClass('testing').html('Unknown');
 							jQuery('.test-' + test + ' .status span').html('Error Getting Response from Test.');
 		  				});
@@ -778,9 +942,23 @@ class GRAV_TESTS {
 			}
 		}
 
-		function test_results(test, response)
+		function test_remove_queries(value, test)
+		{
+			return value.replace('?grav_js_test='+test, '').replace('&grav_js_test='+test, '').replace('&grav_js_remove_admin_bar=1', '');
+		}
+
+		function test_results(response, test)
 		{
 			var data = false;
+
+			if(typeof test === 'undefined')
+			{
+				test = '';
+			}
+			else
+			{
+				response['test'] = test;
+			}
 
 			if(response)
 			{
@@ -803,12 +981,21 @@ class GRAV_TESTS {
 
 				if(data)
 				{
-					if(data['pass'] === true)
+					var test = (typeof data['test'] !== 'undefined' ? data['test'] : test);
+					var pass = (typeof data['pass'] !== 'undefined' ? data['pass'] : '');
+					var message = (typeof data['message'] !== 'undefined' ? data['message'] : '');
+					var errors = (typeof data['errors'] !== 'undefined' ? data['errors'] : []);
+
+					message = test_remove_queries(message, test);
+
+					jQuery('.test-' + test + ' .status .cssload-container').hide();
+
+					if(pass === true)
 					{
 						jQuery('.test-' + test + ' .status h4').addClass('passed').removeClass('failed').removeClass('testing').html('Passed');
 						jQuery('.test-' + test + ' .actions .fix-button').css('display', 'none');
 					}
-					else if(data['pass'] === false)
+					else if(pass === false)
 					{
 						jQuery('.test-' + test + ' .status h4').addClass('failed').removeClass('passed').removeClass('testing').html('Failed');
 						jQuery('.test-' + test + ' .actions .fix-button').css('display', 'inline-block');
@@ -819,15 +1006,30 @@ class GRAV_TESTS {
 						jQuery('.test-' + test + ' .actions .fix-button').css('display', 'none');
 					}
 
-					if(data['message'])
+					if(message)
 					{
-						jQuery('.test-' + test + ' .status span').html(data['message']);
+						jQuery('.test-' + test + ' .status span').html(message);
 					}
 
-					if(data['location'])
+					if(errors.length > 0)
 					{
-						jQuery('.test-' + test + ' .status input').val(data['location']);
-						jQuery('.test-' + test + ' .status input').show();
+						jQuery('.test-' + test + ' .status .show_errors').show().css('display','inline');
+
+						jQuery('.test-' + test + '_error_list .errors_list').html('');
+
+						var error_message, error_location;
+
+						for(var e in errors)
+						{
+							error_message = (typeof errors[e]['message'] !== 'undefined' ? errors[e]['message'] : '');
+							error_location = (typeof errors[e]['location'] !== 'undefined' ? errors[e]['location'] : '');
+							error_line = (typeof errors[e]['line'] !== 'undefined' ? ' (Line: '+errors[e]['line']+')' : '');
+
+							error_message = test_remove_queries(error_message, test);
+							error_location = test_remove_queries(error_location, test)+error_line;
+
+							jQuery('<h4>'+error_message+'</h4>'+(error_location ? '<input type="text" value="'+error_location+'" readonly="readonly">' : '')).appendTo('.test-' + test + '_error_list .errors_list');
+						}
 					}
 				}
 				else
@@ -838,21 +1040,23 @@ class GRAV_TESTS {
 			}
 		}
 
-		function grav_tests_js_pass(test, pass, message, location)
+		function grav_tests_js_pass(response)
 		{
-			/* If already Failed Test then ignore all other responses */
-			if(grav_js_tests_failed[test] === true)
+			if(response['test'] !== 'undefined')
 			{
-				return;
-			}
+				/* If already Failed Test then ignore all other responses */
+				if(grav_js_tests_failed[response['test']] === true)
+				{
+					return;
+				}
 
-			if(!pass && grav_js_tests_failed[test] === false)
-			{
-				grav_js_tests_failed[test] = true;
-				jQuery('.iframe-container-'+test).remove();
-				//alert('Removed .iframe-container-'+test);
+				if(!response['pass'] && grav_js_tests_failed[response['test']] === false)
+				{
+					grav_js_tests_failed[response['test']] = true;
+					jQuery('.iframe-container-'+response['test']).remove();
+				}
+				test_results(response);
 			}
-			test_results(test, {'pass': pass, 'message': message.replace('?grav_js_test='+test, '').replace('&grav_js_test='+test, '').replace('&grav_js_remove_admin_bar=1', ''), 'location': location.replace('?grav_js_test='+test, '').replace('&grav_js_test='+test, '').replace('&grav_js_remove_admin_bar=1', '')});
 		}
 
 		</script>

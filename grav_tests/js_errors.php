@@ -42,19 +42,38 @@ class GRAV_TEST_JS_ERRORS
 	{
 		?>
 		<script type="text/javascript">
-			var _grav_test_page_has_js_error = false;
+			var _grav_test_page_js_errors = [];
 			window.onerror = function(error, file, linenumber)
 			{
-				alert(error, file, linenumber);
-				_grav_test_page_has_js_error = true;
-		  		parent.grav_tests_js_pass('<?php echo $this->id;?>', false, 'JS Error loading ('+window.location.href+'): '+ error, file+' (Line: '+linenumber+')');
+				var response = {
+					'message': 'JS Error loading ('+window.location.href+') '+ error,
+					'location': file,
+					'linenumber': linenumber
+				};
+
+				_grav_test_page_js_errors.push(response);
 			};
 
 			setTimeout(function(){
-				if(_grav_test_page_has_js_error !== true)
+				if(_grav_test_page_js_errors.length > 0)
 				{
-		  			parent.grav_tests_js_pass('<?php echo $this->id;?>', true, 'No JS Errors Detected', '');
+					var response = {
+						'test': '<?php echo $this->id;?>',
+						'pass': false,
+						'errors': _grav_test_page_js_errors,
+						'message': 'Detected ('+_grav_test_page_js_errors.length+') JS Errors'
+					};
+
 		  		}
+		  		else
+		  		{
+		  			var response = {
+						'test': '<?php echo $this->id;?>',
+						'pass': true,
+						'message': 'No JS Errors Detected'
+					};
+		  		}
+		  		parent.grav_tests_js_pass(response);
 		  	}, 10000);
 		</script>
 		<?php

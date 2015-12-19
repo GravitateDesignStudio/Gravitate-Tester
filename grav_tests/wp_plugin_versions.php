@@ -61,10 +61,13 @@ class GRAV_TEST_WP_PLUGINS_VERSIONS
 		return false;
 	}
 
-	public function run()
+	public function get_old_plugins()
 	{
+		$old_plugins = array();
+
+		wp_update_plugins();
+
 		$active = get_option('active_plugins');
-		$updates = get_option('_site_transient_update_plugins');
 
 		if ( ! function_exists( 'get_plugins' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/plugin.php';
@@ -76,16 +79,94 @@ class GRAV_TEST_WP_PLUGINS_VERSIONS
 		{
 			foreach($all_plugins as $plugin_slug => $plugin)
 			{
-				$version = $this->get_plugin_latest_version(dirname($plugin_slug));
-
-				if(!empty($version) && !empty($plugin['Version']) && $plugin['Version'] < $version)
+				if(in_array($plugin_slug, $active))
 				{
-					return array('pass' => false, 'message' => 'Plugin is not Up to Date ('.$plugin['Name'].') '.$plugin['Version'].' < '.$version, 'location' => $plugin_slug);
+					$version = $this->get_plugin_latest_version(dirname($plugin_slug));
+
+					if(!empty($version) && !empty($plugin['Version']) && $plugin['Version'] < $version)
+					{
+						$old_plugins[] = array('name' => $plugin['Name'], 'path' => $plugin_slug, 'current_version' => $plugin['Version'], 'new_version' => $version);
+					}
 				}
 			}
-			return array('pass' => true, 'message' => 'All WordPress Plugins are Up to Date', 'location' => '');
 		}
-		return array('pass' => null, 'message' => 'Unable to check Plugin Updates', 'location' => '');
+		else
+		{
+			return null;
+		}
 
+		return $old_plugins;
+	}
+
+	public function run()
+	{
+		$old_plugins = $this->get_old_plugins();
+
+		$errors = array();
+
+		if($old_plugins === null)
+		{
+			return array('pass' => null, 'message' => 'Unable to check Plugin Updates', 'location' => '');
+		}
+
+		if(!empty($old_plugins))
+		{
+			foreach ($old_plugins as $plugin)
+			{
+				$errors[] = array('message' => 'Plugin is not Up to Date ('.$plugin['name'].') '.$plugin['current_version'].' < '.$plugin['new_version'], 'location' => $plugin['path']);
+			}
+		}
+
+		if($errors)
+		{
+			return array('pass' => false, 'message' => 'There are ('.count($errors).') Plugins that out of Date', 'errors' => $errors);
+		}
+
+		return array('pass' => true, 'message' => 'All WordPress Plugins are Up to Date');
+	}
+
+	public function can_fix()
+	{
+		$plugin_file = ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+
+		if(file_exists($plugin_file) && function_exists('activate_plugin'))
+		{
+			require_once($plugin_file);
+			if(class_exists('Plugin_Upgrader') && method_exists('Plugin_Upgrader', 'upgrade'))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	public function fix()
+	{
+		if($this->can_fix())
+		{
+			$old_plugins = $this->get_old_plugins();
+
+			if($old_plugins === null)
+			{
+				return array('pass' => null, 'message' => 'Unable to check Plugin Updates');
+			}
+
+			if(!empty($old_plugins))
+			{
+				$upgrader = new Plugin_Upgrader();
+				foreach ($old_plugins as $plugin)
+				{
+					$upgrader->upgrade($plugin['path']);
+					activate_plugin($plugin['path']);
+
+					wp_update_plugins();
+
+					sleep(1);
+				}
+			}
+		}
+
+		return $this->run();
 	}
 }

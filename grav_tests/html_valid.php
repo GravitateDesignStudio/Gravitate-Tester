@@ -31,12 +31,18 @@ class GRAV_TEST_HTML_VALID
 	{
 		if(GRAV_TESTS::guess_environment() === 'local')
 		{
-			return array('pass' => null, 'message' => 'Cannot Validate when using Localhost. Try on a valid Hostname.', 'location' => $item->url);
+			return array(
+				'pass' => null,
+				'message' => 'Cannot Validate when using Localhost. Try on a valid Hostname.',
+				'location' => $item->url
+			);
 		}
 
 		$loaded_pages = 0;
 
 		$urls = GRAV_TESTS::get_general_page_urls();
+
+		$errors = array();
 
 		foreach ($urls as $url)
 		{
@@ -44,12 +50,19 @@ class GRAV_TEST_HTML_VALID
 			{
 				if(strpos($contents, '<div id="results">') === false)
 				{
-					return array('pass' => null, 'message' => 'Error loading W3C Validator', 'location' => '');
+					return array(
+						'pass' => null,
+						'message' => 'Error loading W3C Validator',
+						'location' => ''
+					);
 				}
 
 				if(strpos($contents, '<li class="error">') !== false)
 				{
-					return array('pass' => false, 'message' => 'Page ('.$url.') is not HTML Valid.  <a target="_blank" href="'.'https://validator.w3.org/nu/?doc='.$url.'">Learn More</a>', 'location' => $url);
+					$errors[] = array(
+						'message' => 'Page ('.$url.') is not HTML Valid. <a target="_blank" href="'.'https://validator.w3.org/nu/?doc='.$url.'">Learn More</a>',
+						'location' => $url
+					);
 				}
 
 				$loaded_pages++;
@@ -58,9 +71,24 @@ class GRAV_TEST_HTML_VALID
 
 		if(!$loaded_pages)
 		{
-			return array('pass' => null, 'message' => 'Error loading W3C Validator', 'location' => '');
+			return array(
+				'pass' => null,
+				'message' => 'Error loading W3C Validator'
+			);
 		}
 
-		return array('pass' => true, 'message' => 'Successfully Validated ('.$loaded_pages.') Pages', 'location' => '');
+		if(!empty($errors))
+		{
+			return array(
+				'pass' => false,
+				'errors' => $errors,
+				'message' => 'There are ('.count($errors).') Pages with Errors'
+			);
+		}
+
+		return array(
+			'pass' => true,
+			'message' => 'Successfully Validated ('.$loaded_pages.') Pages'
+		);
 	}
 }

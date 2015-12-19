@@ -43,48 +43,102 @@ class GRAV_TEST_JS_CONSOLE_LOGS
 		?>
 		<script type="text/javascript">
 
-			var _grav_test_page_has_js_log = false;
-
+			var _grav_test_page_js_logs = [];
 			var _grav_test_page_has_js_error = false;
+
 			window.onerror = function(error, file, linenumber)
 			{
 				_grav_test_page_has_js_error = true;
+				//alert(3);
 			};
 
 			(function(){
 			    var oldLog = console.log;
 			    console.log = function (message)
 			    {
-					_grav_test_page_has_js_log = true;
-			  		parent.grav_tests_js_pass('<?php echo $this->id;?>', false, 'Console Log Detected', window.location.href);
-			        oldLog.apply(console, arguments);
+			    	var caller_line = (new Error).stack.split('@').join(' > ').split(' at ').join(' > ');
+
+			    	var response = {
+						'message': 'Console Log Detected on ('+window.location.href+')',
+						'location': caller_line
+					};
+			  		_grav_test_page_js_logs.push(response);
 			    };
 			})();
 
-			setTimeout(function(){
-				if(_grav_test_page_has_js_log !== true)
+			function grav_send_js_test_results()
+			{
+				setTimeout(function()
 				{
-					if(_grav_test_page_has_js_error)
+					if(_grav_test_page_js_logs.length > 0)
 					{
-						parent.grav_tests_js_pass('<?php echo $this->id;?>', null, 'No Logs Detected, but found Errors. Resolve the Errors first', '');
-					}
-					else
-					{
-		  				parent.grav_tests_js_pass('<?php echo $this->id;?>', true, 'No Console Logs Detected', '');
-		  			}
-		  		}
-		  	}, 10000);
+						var response = {
+							'test': '<?php echo $this->id;?>',
+							'pass': false,
+							'errors': _grav_test_page_js_logs,
+							'message': 'Console Logs Detected on ('+window.location.href+')'
+						};
+
+			  		}
+			  		else if(_grav_test_page_has_js_error)
+			  		{
+			  			var response = {
+							'test': '<?php echo $this->id;?>',
+							'pass': null,
+							'message': 'No Console Logs Detected, but Errors Found. Fix Errors first.'
+						};
+			  		}
+			  		else
+			  		{
+			  			var response = {
+							'test': '<?php echo $this->id;?>',
+							'pass': true,
+							'message': 'No Console Logs Detected'
+						};
+			  		}
+			  		parent.grav_tests_js_pass(response);
+				}, 2000);
+			}
 
 		</script>
 		<?php
 	}
 
-	/*
+
 	public function js_footer()
 	{
 		?>
-		<!-- Nothing -->
+		<script>
+
+		if(typeof jQuery !== 'undefined')
+		{
+			jQuery(window).on('load', function()
+			{
+				grav_send_js_test_results();
+			});
+		}
+		else
+		{
+			if (typeof window.onload != 'function')
+			{
+				window.onload = grav_send_js_test_results;
+			}
+			else
+			{
+				var oldonload = window.onload;
+				window.onload = function()
+				{
+					if(oldonload)
+					{
+						oldonload();
+					}
+					grav_send_js_test_results();
+				}
+			}
+		}
+
+		</script>
 		<?php
 	}
-	*/
+
 }
