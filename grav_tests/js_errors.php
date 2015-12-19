@@ -45,46 +45,78 @@ class GRAV_TEST_JS_ERRORS
 			var _grav_test_page_js_errors = [];
 			window.onerror = function(error, file, linenumber)
 			{
-				var response = {
+				var error = {
 					'message': 'JS Error loading ('+window.location.href+') '+ error,
 					'location': file,
-					'linenumber': linenumber
+					'line': linenumber
 				};
 
-				_grav_test_page_js_errors.push(response);
+				_grav_test_page_js_errors.push(error);
 			};
 
-			setTimeout(function(){
-				if(_grav_test_page_js_errors.length > 0)
+		  	function grav_send_js_test_results()
+			{
+				setTimeout(function()
 				{
-					var response = {
-						'test': '<?php echo $this->id;?>',
-						'pass': false,
-						'errors': _grav_test_page_js_errors,
-						'message': 'Detected ('+_grav_test_page_js_errors.length+') JS Errors'
-					};
-
-		  		}
-		  		else
-		  		{
-		  			var response = {
-						'test': '<?php echo $this->id;?>',
-						'pass': true,
-						'message': 'No JS Errors Detected'
-					};
-		  		}
-		  		parent.grav_tests_js_pass(response);
-		  	}, 10000);
+					if(_grav_test_page_js_errors.length > 0)
+					{
+						var response = {
+							'test': '<?php echo $this->id;?>',
+							'pass': false,
+							'errors': _grav_test_page_js_errors,
+							'message': 'Detected ('+_grav_test_page_js_errors.length+') JS Errors'
+						};
+			  		}
+			  		else
+			  		{
+			  			var response = {
+							'test': '<?php echo $this->id;?>',
+							'pass': true,
+							'message': 'No JS Errors Detected'
+						};
+			  		}
+			  		parent.grav_tests_js_pass(response);
+				}, 2000);
+			}
 		</script>
 		<?php
 	}
 
-	/*
+
 	public function js_footer()
 	{
 		?>
-		<!-- Nothing -->
+		<script>
+
+		if(typeof jQuery !== 'undefined')
+		{
+			jQuery(window).on('load', function()
+			{
+				grav_send_js_test_results();
+			});
+		}
+		else
+		{
+			if (typeof window.onload != 'function')
+			{
+				window.onload = grav_send_js_test_results;
+			}
+			else
+			{
+				var oldonload = window.onload;
+				window.onload = function()
+				{
+					if(oldonload)
+					{
+						oldonload();
+					}
+					grav_send_js_test_results();
+				}
+			}
+		}
+
+		</script>
 		<?php
 	}
-	*/
+
 }

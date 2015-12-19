@@ -24,6 +24,7 @@ class GRAV_TESTS {
 	private static $settings = array();
 	private static $page = 'options-general.php?page=gravitate_tester';
 	private static $option_key = 'gravitate_tester_settings';
+	private static $tests = false;
 
 	public static function init()
 	{
@@ -131,6 +132,11 @@ class GRAV_TESTS {
 
 	public static function get_tests()
 	{
+		if(!empty(self::$tests))
+		{
+			return self::$tests;
+		}
+
 		$grav_tests = array();
 
 		foreach (glob(plugin_dir_path( __FILE__ ).'grav_tests/*.php') as $file)
@@ -177,7 +183,9 @@ class GRAV_TESTS {
 
 		ksort($tests);
 
-		return $tests;
+		self::$tests = $tests;
+
+		return self::$tests;
 	}
 
 	private static function get_enabled_tests()
@@ -317,6 +325,9 @@ class GRAV_TESTS {
      */
 	private static function get_settings_fields($location = 'general')
 	{
+
+		$fields = array();
+
 		switch ($location)
 		{
 
@@ -327,6 +338,11 @@ class GRAV_TESTS {
 
 			default:
 			case 'general':
+
+
+				$environments = self::get_environments();
+				$fields['environment'] = array('type' => 'select', 'label' => 'Environment', 'options' => $environments, 'description' => '');
+
 
 
 				$tests = self::get_tests();
@@ -341,9 +357,6 @@ class GRAV_TESTS {
 					}
 					$groups[$test['group']][$test['id']] = $test['description'];
 				}
-
-				$fields = array();
-
 
 				foreach ($groups as $group => $tests)
 				{
@@ -411,8 +424,8 @@ class GRAV_TESTS {
 		<br>
 
 		<div class="gravitate-redirects-page-links">
-			<a href="<?php echo self::$page;?>&section=settings" class="<?php echo self::get_current_tab($_GET['section'], 'settings'); ?>">Settings</a>
-			<a href="<?php echo self::$page;?>&section=run_tests" class="<?php echo self::get_current_tab($_GET['section'], 'run_tests'); ?>">Run Tests</a>
+			<a href="<?php echo self::$page;?>&section=run_tests" class="<?php echo self::get_current_tab($_GET['section'], 'run_tests'); ?>">Run Tests</a> &nbsp; | &nbsp;
+			<a href="<?php echo self::$page;?>&section=settings" class="<?php echo self::get_current_tab($_GET['section'], 'settings'); ?>">Settings</a> &nbsp; | &nbsp;
 			<a href="<?php echo self::$page;?>&section=developers" class="<?php echo self::get_current_tab($_GET['section'], 'developers'); ?>">Developers</a>
 		</div>
 
@@ -422,7 +435,7 @@ class GRAV_TESTS {
 
 		<?php
 
-		$section = (!empty($_GET['section']) ? $_GET['section'] : 'settings');
+		$section = (!empty($_GET['section']) ? $_GET['section'] : 'run_tests');
 
 		switch($section)
 		{
@@ -522,11 +535,9 @@ class GRAV_TESTS {
         return $_SERVER['REMOTE_ADDR'];
     }
 
-
-
-	private static function run_tests()
-	{
-		self::get_settings();
+    private static function get_environments()
+    {
+    	self::get_settings();
 
 		$tests = self::get_tests();
 		$enabled_tests = self::get_enabled_tests();
@@ -543,6 +554,18 @@ class GRAV_TESTS {
 		$environments = array_unique($environments);
 
 		unset($environments[array_search('all', $environments)]);
+
+		return $environments;
+    }
+
+	private static function run_tests()
+	{
+		self::get_settings();
+
+		$tests = self::get_tests();
+		$enabled_tests = self::get_enabled_tests();
+
+		$environments = self::get_environments();
 
 		?>
 
@@ -654,6 +677,17 @@ class GRAV_TESTS {
 			line-height: 18px;
 		}
 
+		.environment-label h3 {
+			/*margin-left: 20%;
+			display: inline-block;*/
+			margin-bottom: 6px;
+		}
+		.environment-label label {
+			/*margin-left: 20%;
+			display: inline-block;*/
+			margin-bottom: 6px;
+		}
+
 		.cssload-container {
 			width: 20px;
 			height: 10px;
@@ -700,15 +734,16 @@ class GRAV_TESTS {
 		</style>
 
 
-		<div style="text-align:left; width:50%;">
-			<label>Environment</label>
-			<select id="environment" autocomplete="off">
-				<?php foreach($environments as $environment){ ?>
-					<option <?php selected($environment_default, $environment);?>><?php echo $environment;?></option>
-				<?php } ?>
-			</select> &nbsp;
+		<div class="environment-label" style="float:left; text-align:left; width:50%;">
+			<h3>Environment - <?php echo self::$settings['environment'];?></h3>
+			<label><input type="checkbox" id="show-all-tests"><small>Show All Tests</small></label>
+		</div>
+		<div style="float: right; text-align:right; width:50%;">
+		<br>
 			<button onclick="run_all_tests();" class="button button-primary">Run All Tests</a>
 		</div>
+		<br class="clear:both;">
+		<br>&nbsp;
 		<br>
 
 		<table class="wp-list-table widefat plugins" cellspacing="0">
@@ -781,11 +816,6 @@ class GRAV_TESTS {
 			}
 		}
 
-		jQuery('#environment').on('change', function()
-		{
-			update_environments(jQuery(this).val());
-		});
-
 		jQuery('.status .show_errors').on('click', function(e){
 			e.preventDefault();
 			jQuery(this).hide();
@@ -802,7 +832,20 @@ class GRAV_TESTS {
 			jQuery(this).parent().find('.show_errors').show().css('display','inline');
 		});
 
-		update_environments(jQuery('#environment').val());
+		update_environments('<?php echo self::$settings['environment'];?>');
+
+		jQuery('#the-list tr.inactive').hide();
+
+		jQuery('#show-all-tests').on('click', function(e){
+			if(jQuery(this).is(':checked'))
+			{
+				jQuery('#the-list tr.inactive').show();
+			}
+			else
+			{
+				jQuery('#the-list tr.inactive').hide();
+			}
+		});
 
 		var grav_tests = [];
 		<?php foreach ($enabled_tests as $num => $test) { ?>
@@ -820,7 +863,7 @@ class GRAV_TESTS {
 
 		function run_all_tests()
 		{
-			var environment = jQuery('#environment').val();
+			var environment = '<?php echo self::$settings['environment'];?>';
 			var num = 1;
 			for(var t in grav_tests)
 			{
@@ -834,7 +877,7 @@ class GRAV_TESTS {
 
 		function run_ajax_fix(test)
 		{
-			var environment = jQuery('#environment').val();
+			var environment = '<?php echo self::$settings['environment'];?>';
 
 			jQuery('.test-' + test + ' .status > h4').removeClass('failed').removeClass('passed').addClass('testing').html('Fixing');
 			jQuery('.test-' + test + ' .status .cssload-container').show();
@@ -866,7 +909,7 @@ class GRAV_TESTS {
 		{
 			if(grav_tests[test] !== 'undefined')
 			{
-				var environment = jQuery('#environment').val();
+				var environment = '<?php echo self::$settings['environment'];?>';
 
 				grav_js_tests_failed[test] = false;
 
@@ -1177,15 +1220,17 @@ class YourCompanyNameCustomTestName
 	{
 		if(true)
 		{
-			return array('pass' => true, 'message' => 'Your Test Passed', 'location' => '');
+			return array('pass' => true, 'message' => 'Your Test Passed');
 		}
 		else if(false)
 		{
-			return array('pass' => false, 'message' => 'Your Test Failed', 'location' => 'somefile.php:32');
+			$errors = array();
+			$errors[] = array('message' => 'It Failed because of this', , 'location' => 'somefile.php', 'line' => 43);
+			return array('pass' => false, 'message' => 'Your Test Failed', 'errors' => $errors);
 		}
 		else
 		{
-			return array('pass' => null, 'message' => 'Unknown Error', 'location' => '');
+			return array('pass' => null, 'message' => 'Unknown Error');
 		}
 	}
 
@@ -1203,12 +1248,9 @@ class YourCompanyNameCustomTestName
 	public function fix() /* OPTIONAL */
 	{
 		/* Run code here to Fix issue */
-		if(true)
-		{
-			return array('pass' => true, 'message' => 'Issue was Fixed.', 'location' => '');
-		}
 
-		return array('pass' => false, 'message' => 'Unable to Fix Issue', 'location' => '');
+		/* Check to see if it still has errors */
+		return $this->run();
 	}
 }
 
@@ -1230,7 +1272,7 @@ class YourCompanyNameCustomTestName
 
 	public function environment()
 	{
-		return 'local,dev,staging,production';  // you could also use "all"
+		return 'local,dev,staging,production';  /* you could also use "all" */
 	}
 
 	public function group()
@@ -1264,9 +1306,17 @@ class YourCompanyNameCustomTestName
 		?&gt;
 		&lt;script type="text/javascript"&gt;
 
+			var grav_test_errors = [];
+
 			window.onerror = function(error, file, linenumber)
 			{
-		  		parent.grav_tests_js_pass('&lt;?php echo $this->id;?&gt;', false, 'JS Error loading ('+window.location.href+'): '+ error, file+' (Line: '+linenumber+')');
+				var error = {
+					'message': 'JS Error loading ('+window.location.href+') '+ error,
+					'location': file,
+					'line': linenumber
+				};
+
+				grav_test_errors.push(error);
 			};
 
 		&lt;/script&gt;
@@ -1277,7 +1327,31 @@ class YourCompanyNameCustomTestName
 	{
 		?&gt;
 		&lt;script type="text/javascript"&gt;
-		// Some Code Here
+
+
+		jQuery(window).on('load', function()
+		{
+			if(grav_test_errors.length > 0)
+			{
+				var response = {
+					'test': '&lt;?php echo $this->id;?&gt;',
+					'pass': false,
+					'errors': grav_test_errors,
+					'message': 'Detected ('+grav_test_errors.length+') JS Errors'
+				};
+	  		}
+	  		else
+	  		{
+	  			var response = {
+					'test': '&lt;?php echo $this->id;?&gt;',
+					'pass': true,
+					'message': 'No JS Errors Detected'
+				};
+	  		}
+	  		parent.grav_tests_js_pass(response);
+		});
+
+
 		&lt;/script&gt;
 		&lt;?php
 	}
