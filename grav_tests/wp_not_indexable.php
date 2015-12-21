@@ -19,12 +19,12 @@ class GRAV_TEST_WP_NOT_INDEXABLE
 
 	public function label()
 	{
-		return 'WP Not Indexable';
+		return 'SEO Remove Indexing';
 	}
 
 	public function description()
 	{
-		return 'Make sure WordPress is Not Indexable in Dev and Staging';
+		return 'Disallow search engines to index the site in Dev and Staging';
 	}
 
 	public function run()

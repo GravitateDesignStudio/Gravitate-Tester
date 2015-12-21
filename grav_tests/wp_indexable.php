@@ -19,12 +19,12 @@ class GRAV_TEST_WP_INDEXABLE
 
 	public function label()
 	{
-		return 'WP Indexable';
+		return 'SEO Indexable';
 	}
 
 	public function description()
 	{
-		return 'Make sure WordPress is Indexable in Production';
+		return 'Allow search engines to index the site in Production';
 	}
 
 	public function run()

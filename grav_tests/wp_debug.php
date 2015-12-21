@@ -46,7 +46,7 @@ class GRAV_TEST_WP_DEBUG
 			return ABSPATH . 'wp-config.php';
 		}
 
-		if(file_exists(ABSPATH . 'wp-config.php'))
+		if(file_exists(ABSPATH . '../wp-config.php'))
 		{
 			return ABSPATH . '../wp-config.php';
 		}

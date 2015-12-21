@@ -29,7 +29,7 @@ class GRAV_TEST_WP_PLUGINS_VERSIONS
 
 	private function get_plugin_latest_version($plugin='')
 	{
-		if(!function_exists('plugins_api'))
+		if(!function_exists('plugins_api') && file_exists(ABSPATH . 'wp-admin/includes/plugin-install.php'))
 		{
 		    require_once(ABSPATH . 'wp-admin/includes/plugin-install.php');
 		}
@@ -69,30 +69,34 @@ class GRAV_TEST_WP_PLUGINS_VERSIONS
 
 		$active = get_option('active_plugins');
 
-		if ( ! function_exists( 'get_plugins' ) ) {
+		if(!function_exists('get_plugins') && file_exists(ABSPATH . 'wp-admin/includes/plugin.php'))
+		{
 			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+
+		if(!function_exists('get_plugins'))
+		{
+			return null;
 		}
 
 		$all_plugins = get_plugins();
 
-		if(!empty($all_plugins))
-		{
-			foreach($all_plugins as $plugin_slug => $plugin)
-			{
-				if(in_array($plugin_slug, $active))
-				{
-					$version = $this->get_plugin_latest_version(dirname($plugin_slug));
-
-					if(!empty($version) && !empty($plugin['Version']) && $plugin['Version'] < $version)
-					{
-						$old_plugins[] = array('name' => $plugin['Name'], 'path' => $plugin_slug, 'current_version' => $plugin['Version'], 'new_version' => $version);
-					}
-				}
-			}
-		}
-		else
+		if(empty($all_plugins))
 		{
 			return null;
+		}
+
+		foreach($all_plugins as $plugin_slug => $plugin)
+		{
+			if(in_array($plugin_slug, $active))
+			{
+				$version = $this->get_plugin_latest_version(dirname($plugin_slug));
+
+				if(!empty($version) && !empty($plugin['Version']) && $plugin['Version'] < $version)
+				{
+					$old_plugins[] = array('name' => $plugin['Name'], 'path' => $plugin_slug, 'current_version' => $plugin['Version'], 'new_version' => $version);
+				}
+			}
 		}
 
 		return $old_plugins;
