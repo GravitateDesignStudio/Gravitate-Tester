@@ -31,7 +31,7 @@ class GRAV_TEST_WP_DEBUG
 	{
 		if(defined('WP_DEBUG') && WP_DEBUG)
 		{
-			return array('pass' => false, 'message' => 'WordPress Debug is on.  Please turn it off.  This is usually set in the wp-config.php', 'location' => '');
+			return array('pass' => false, 'message' => 'WordPress Debug is on.', 'errors' => array(array('message' => 'WP_DEBUG is on.  It should be off.', 'details' => 'Having this on can compromise your website. This is usually set in the wp-config.php.')));
 		}
 		else
 		{
@@ -56,17 +56,20 @@ class GRAV_TEST_WP_DEBUG
 
 	public function can_fix()
 	{
-		$path = $this->get_wp_config_path();
-
-		if($path && wp_is_writable($path))
+		if(GRAV_TESTS::is_editable())
 		{
-			if($contents = file_get_contents($path))
-			{
-				$contents = GRAV_TESTS::remove_comments($contents);
+			$path = $this->get_wp_config_path();
 
-				if(preg_match('/define[^;]*WP_DEBUG.*(true|TRUE)[^;]*/s', $contents, $matches))
+			if($path && wp_is_writable($path))
+			{
+				if($contents = file_get_contents($path))
 				{
-					return true;
+					$contents = GRAV_TESTS::remove_comments($contents);
+
+					if(preg_match('/define[^;]*WP_DEBUG.*(true|TRUE)[^;]*/s', $contents, $matches))
+					{
+						return true;
+					}
 				}
 			}
 		}

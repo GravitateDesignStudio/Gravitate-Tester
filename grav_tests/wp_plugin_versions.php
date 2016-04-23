@@ -131,14 +131,17 @@ class GRAV_TEST_WP_PLUGINS_VERSIONS
 
 	public function can_fix()
 	{
-		$plugin_file = ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
-
-		if(file_exists($plugin_file) && function_exists('activate_plugin'))
+		if(GRAV_TESTS::is_editable())
 		{
-			require_once($plugin_file);
-			if(class_exists('Plugin_Upgrader') && method_exists('Plugin_Upgrader', 'upgrade'))
+			$plugin_file = ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+
+			if(file_exists($plugin_file) && function_exists('activate_plugin'))
 			{
-				return true;
+				require_once($plugin_file);
+				if(class_exists('Plugin_Upgrader') && method_exists('Plugin_Upgrader', 'upgrade'))
+				{
+					return true;
+				}
 			}
 		}
 

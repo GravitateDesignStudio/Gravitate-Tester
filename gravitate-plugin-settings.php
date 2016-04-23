@@ -2,13 +2,14 @@
 /*
 * Gravitate Plugin Settings File
 * Version: 1.0.0
+* Updated 2-17-16
 *
 */
 
 
 if(function_exists('add_action'))
 {
-	add_action( 'admin_enqueue_scripts', array('GRAV_BLOCKS_PLUGIN_SETTINGS', 'add_sortable') );
+	add_action( 'admin_enqueue_scripts', array('GRAV_TESTER_PLUGIN_SETTINGS', 'add_sortable') );
 }
 
 class GRAV_TESTER_PLUGIN_SETTINGS

@@ -2,11 +2,30 @@
 /*
 Plugin Name: Gravitate Automated Tester
 Description: Allows to run Automated Tests in the WP Admin Panel
-Version: 1.0.0
+Version: 1.3.1
 Plugin URI: http://www.gravitatedesign.com
 Author: Gravitate
 
 */
+
+
+if(!empty($_GET['grav_wp_test']) && $_GET['grav_wp_test'] === 'grav-test-php-errors' && !empty($_GET['grav_wp_test_auth']) && $_GET['grav_wp_test_auth'] === md5(AUTH_KEY.'grav-test-php-errors'))
+{
+	if($grav_tester_options = get_option('gravitate_tester_settings'))
+	{
+		foreach ($grav_tester_options as $grav_tester_option)
+		{
+			if(is_array($grav_tester_option))
+			{
+				if(in_array('grav-test-php-errors', $grav_tester_option))
+				{
+					ini_set('error_reporting', E_ALL);
+					ini_set('display_errors', 1);
+				}
+			}
+		}
+	}
+}
 
 register_activation_hook( __FILE__, array( 'GRAV_TESTS', 'activate' ));
 register_deactivation_hook( __FILE__, array( 'GRAV_TESTS', 'deactivate' ));
@@ -20,7 +39,7 @@ add_action('wp_ajax_grav_run_fix_test', array( 'GRAV_TESTS', 'ajax_run_fix_test'
 
 class GRAV_TESTS {
 
-	private static $version = '1.0.0';
+	private static $version = '1.3.1';
 	private static $settings = array();
 	private static $page = 'options-general.php?page=gravitate_tester';
 	private static $option_key = 'gravitate_tester_settings';
@@ -28,14 +47,14 @@ class GRAV_TESTS {
 
 	public static function init()
 	{
-		if(is_admin() || !empty($_GET['grav_js_test']))
+		if(is_admin() || !empty($_GET['grav_wp_test']))
 		{
 			self::setup();
 		}
 
-		if(!empty($_GET['grav_js_test']))
+		if(!empty($_GET['grav_wp_test']))
 		{
-			$test = $_GET['grav_js_test'];
+			$test = $_GET['grav_wp_test'];
 			$enabled_tests = self::get_enabled_tests();
 			if(in_array($test, $enabled_tests))
 			{
@@ -45,28 +64,41 @@ class GRAV_TESTS {
 					$test_class = $tests[$test]['class'];
 					$test_obj = new $test_class();
 					$id = sanitize_title($tests[$test]['label']).'-'.dechex(crc32($tests[$test]['file']));
+
+					if(strpos($tests[$test]['file'], '/gravitate-automated-tester/grav_tests/php_errors.php') !== false)
+					{
+						$id = 'grav-test-php-errors';
+					}
+
 					$test_obj->id = $id;
 
-					if(method_exists($test_obj,'js_head'))
+					if(!empty($_GET['grav_wp_test_auth']) && $_GET['grav_wp_test_auth'] === md5(AUTH_KEY.$test))
 					{
-						add_action('wp_head', array($test_obj, 'js_head'), 0);
-
-					}
-
-					if(method_exists($test_obj,'js_footer'))
-					{
-						add_action('wp_footer', array($test_obj, 'js_footer'));
-					}
-
-					if(!empty($_GET['grav_js_remove_admin_bar']))
-					{
-						add_filter('show_admin_bar', '__return_false');
-
-						foreach ($_COOKIE as $cookie_key => $cookie_value)
+						if(method_exists($test_obj,'wp_start'))
 						{
-							if($cookie_key !== 'wordpress_test_cookie' && strpos($cookie_key, 'wordpress_') !== false)
+							$test_obj->wp_start();
+						}
+
+						if(method_exists($test_obj,'wp_head'))
+						{
+							add_action('wp_head', array($test_obj, 'wp_head'), 0);
+						}
+
+						if(method_exists($test_obj,'wp_footer'))
+						{
+							add_action('wp_footer', array($test_obj, 'wp_footer'));
+						}
+
+						if(!empty($_GET['grav_wp_remove_admin_bar']))
+						{
+							add_filter('show_admin_bar', '__return_false');
+
+							foreach ($_COOKIE as $cookie_key => $cookie_value)
 							{
-								unset($_COOKIE[$cookie_key]);
+								if($cookie_key !== 'wordpress_test_cookie' && strpos($cookie_key, 'wordpress_') !== false)
+								{
+									unset($_COOKIE[$cookie_key]);
+								}
 							}
 						}
 					}
@@ -159,7 +191,12 @@ class GRAV_TESTS {
 				$test = new $test_class();
 				$id = sanitize_title($test->label()).'-'.dechex(crc32($file));
 
-				$tests[$id] = array('id' => $id, 'type' => $test->type(), 'environment' => 'all', 'group' => $test->group(), 'can_fix' => false, 'js_urls' => "''", 'file' => $file, 'class' => $test_class, 'label' => $test->label(), 'description' => $test->description());
+				if(strpos($file, '/gravitate-automated-tester/grav_tests/php_errors.php') !== false)
+				{
+					$id = 'grav-test-php-errors';
+				}
+
+				$tests[$id] = array('id' => $id, 'type' => $test->type(), 'environment' => 'all', 'group' => $test->group(), 'can_run' => true, 'can_fix' => false, 'js_urls' => "''", 'file' => $file, 'class' => $test_class, 'label' => $test->label(), 'description' => $test->description(), 'fix_confirmation' => '');
 
 				if($test->type() === 'js' && method_exists($test,'js_urls'))
 				{
@@ -171,11 +208,22 @@ class GRAV_TESTS {
 					$tests[$id]['environment'] = $test->environment();
 				}
 
+				if(method_exists($test,'can_run'))
+				{
+					$tests[$id]['can_run'] = $test->can_run();
+				}
+
 				if(method_exists($test,'can_fix') && method_exists($test,'fix'))
 				{
 					if($test->can_fix())
 					{
 						$tests[$id]['can_fix'] = true;
+
+						if(method_exists($test,'fix_confirmation'))
+						{
+							$tests[$id]['fix_confirmation'] = $test->fix_confirmation();
+						}
+
 					}
 				}
 			}
@@ -208,6 +256,22 @@ class GRAV_TESTS {
 	}
 
 
+	public static function is_editable()
+	{
+		if(self::guess_environment() === 'local')
+		{
+			return true;
+		}
+
+		if(!defined('DISALLOW_FILE_EDIT') || (defined('DISALLOW_FILE_EDIT') && DISALLOW_FILE_EDIT == false))
+		{
+			return true;
+		}
+
+		return false;
+	}
+
+
 	public static function remove_comments($contents='')
 	{
 		$contents = preg_replace('!/\*.*?\*/!s', '', $contents);
@@ -215,6 +279,17 @@ class GRAV_TESTS {
 		$contents = preg_replace('![ \t]*//.*[ \t]*[\r\n]!', '', $contents);
 
 		return $contents;
+	}
+
+
+	public static function url_add_auth($url='', $id='')
+	{
+		if($url)
+		{
+			$url.= (strpos($url, '?') === false ? '?' : '&');
+		}
+		$url.= 'grav_wp_test='.$id.'&grav_wp_test_auth='.md5(AUTH_KEY.$id);
+		return $url;
 	}
 
 
@@ -285,31 +360,18 @@ class GRAV_TESTS {
 		return array_unique($urls);
 	}
 
-	public static function get_post_type_page_urls()
+	public static function get_post_type_page_urls($custom_post_types=true)
 	{
-		foreach(get_pages(array('number' => 1)) as $page)
-		{
-			$urls[] = get_permalink($page->ID);
-		}
-
-		foreach(get_posts(array('posts_per_page' => 1)) as $post)
-		{
-			$urls[] = get_permalink($post->ID);
-		}
-
 		$post_types = get_post_types(array('public' => true, '_builtin' => false));
 
-		if(!empty($post_types))
-		{
-			$post_types[] = 'post';
-			$post_types[] = 'page';
+		$post_types[] = 'post';
+		$post_types[] = 'page';
 
-			foreach ($post_types as $post_type)
+		foreach ($post_types as $post_type)
+		{
+			foreach(get_posts(array('post_type' => $post_type, 'posts_per_page' => 1)) as $post)
 			{
-				foreach(get_posts(array('post_type' => $post_type, 'posts_per_page' => 1)) as $post)
-				{
-					$urls[] = get_permalink($post->ID);
-				}
+				$urls[] = get_permalink($post->ID);
 			}
 		}
 
@@ -384,7 +446,6 @@ class GRAV_TESTS {
 		{
 			return 'active';
 		}
-
 	}
 
 	/**
@@ -394,6 +455,23 @@ class GRAV_TESTS {
 	 */
 	public static function admin()
 	{
+		// Make sure that this Plugin Loads before the others.
+		if($active_plugins = get_option('active_plugins'))
+		{
+			$plugin_path = plugin_basename( __FILE__ );
+			if(!empty($active_plugins[0]) && $active_plugins[0] !== $plugin_path)
+			{
+				$plugin_count = count($active_plugins);
+				$out = array_splice($active_plugins, array_search($plugin_path, $active_plugins), 1);
+				array_splice($active_plugins, 0, 0, $out);
+
+				if(count($active_plugins) === $plugin_count && $active_plugins[0] === $plugin_path)
+				{
+					update_option('active_plugins', $active_plugins);
+				}
+			}
+		}
+
 		// Get Settings
 		self::get_settings(true);
 
@@ -485,7 +563,6 @@ class GRAV_TESTS {
 
 	public static function guess_environment()
 	{
-
 		$ip_sub = substr(self::get_real_ip(), 0, 3);
 
 		if($ip_sub == '127')
@@ -767,7 +844,7 @@ class GRAV_TESTS {
 			<tbody id="the-list">
 				<?php foreach ($enabled_tests as $num => $test) { ?>
 					<?php if(!empty($tests[$test])) { ?>
-					<tr class="event active test-data test-<?php echo $tests[$test]['id']; ?> environment-<?php echo implode(' environment-', explode(',', $tests[$test]['environment']));?>">
+					<tr class="event active test-data test-<?php echo $tests[$test]['id']; ?><?php if($tests[$test]['can_run']){?> environment-<?php echo implode(' environment-', explode(',', $tests[$test]['environment']));?><?php } ?> ">
 						<th class="info check-column">
 							<h4 style="margin:0;"><?php echo $tests[$test]['label']; ?></h4>
 						</td>
@@ -775,7 +852,7 @@ class GRAV_TESTS {
 							<?php echo $tests[$test]['description']; ?>
 						</td>
 						<td class="status">
-							<h4></h4>
+							<h4><?php if(!$tests[$test]['can_run']){?><span class="testing">Your site does not match the criteria to be able to run this test.</span><?php } ?></h4>
 							<div class="cssload-container">
 								<div class="cssload-double-torus"></div>
 							</div>
@@ -783,10 +860,13 @@ class GRAV_TESTS {
 							<span></span>
 						</td>
 						<td class="actions">
+						<?php if($tests[$test]['can_run']){?>
 							<?php if($tests[$test]['can_fix']){ ?>
-								<button class="button fix-button" onclick="run_ajax_fix('<?php echo $tests[$test]['id']; ?>');">Fix</button>
+								<button class="button fix-button" onclick="<?php if($tests[$test]['fix_confirmation']){ ?>if(confirm('<?php echo $tests[$test]['fix_confirmation'];?>')){<?php } ?>run_ajax_fix('<?php echo $tests[$test]['id']; ?>');<?php if($tests[$test]['fix_confirmation']){ ?>}<?php } ?>">Fix</button>
 							<?php } ?>
+
 							<button class="button" onclick="run_ajax_test('<?php echo $tests[$test]['id']; ?>', 500);">Run Test</button>
+						<?php } ?>
 						</td>
 					</tr>
 					<tr class="event active test-errors test-<?php echo $tests[$test]['id']; ?>_error_list">
@@ -850,7 +930,7 @@ class GRAV_TESTS {
 		var grav_tests = [];
 		<?php foreach ($enabled_tests as $num => $test) { ?>
 			<?php if(!empty($tests[$test])) { ?>
-			grav_tests['<?php echo $tests[$test]['id'];?>'] = {'id': '<?php echo $tests[$test]['id'];?>', 'type': '<?php echo $tests[$test]['type'];?>', 'environment': '<?php echo $tests[$test]['environment'];?>', 'js_urls': <?php echo $tests[$test]['js_urls'];?>};
+			grav_tests['<?php echo $tests[$test]['id'];?>'] = {'id': '<?php echo $tests[$test]['id'];?>', 'type': '<?php echo $tests[$test]['type'];?>', 'can_run': '<?php echo $tests[$test]['can_run'];?>', 'environment': '<?php echo $tests[$test]['environment'];?>', 'js_urls': <?php echo $tests[$test]['js_urls'];?>, 'url_auth': '<?php echo self::url_add_auth('', $test);?>'};
 			<?php } ?>
 		<?php } ?>
 
@@ -861,18 +941,30 @@ class GRAV_TESTS {
 			<?php } ?>
 		<?php } ?>
 
+		var _grav_tests_run_all_tests_count = 0;
+
 		function run_all_tests()
 		{
+			if(_grav_tests_run_all_tests_count > 0)
+			{
+				if(!confirm('It is best to not Run all the Tests multiple times. Instead only the run the ones that have Errors individually after you have worked on fixing them.'))
+				{
+					return false;
+				}
+			}
+
 			var environment = '<?php echo self::$settings['environment'];?>';
 			var num = 1;
 			for(var t in grav_tests)
 			{
-				if(grav_tests[t]['environment'] === 'all' || grav_tests[t]['environment'].indexOf(environment) > -1)
+				if(grav_tests[t]['can_run'] && (grav_tests[t]['environment'] === 'all' || grav_tests[t]['environment'].indexOf(environment) > -1))
 				{
 					run_ajax_test(grav_tests[t]['id'], (500*num));
 				}
 				num++;
 			}
+
+			_grav_tests_run_all_tests_count++;
 		}
 
 		function run_ajax_fix(test)
@@ -959,6 +1051,9 @@ class GRAV_TESTS {
 		  						{
 		  							jQuery('#'+url_id).remove();
 		  						}
+
+		  						url['auth'] = grav_tests[test]['url_auth'];
+
 		  						load_js_test_frame(test, url_id, url, u);
 		  					}
 		  				}
@@ -970,6 +1065,10 @@ class GRAV_TESTS {
 		function load_js_test_frame(test, url_id, url, sec)
 		{
 			var src = (url['url'] !== 'undefined' ? url['url'] : '');
+			var auth = (url['auth'] !== 'undefined' ? url['auth'] : '');
+
+			src+= (src.indexOf('?') > -1 ? '&' : '?')+auth;
+
 			var width = (url['width'] !== 'undefined' ? url['width'] : '800');
 			var height = (url['height'] !== 'undefined' ? url['height'] : '600');
 			var admin_bar = (url['with_admin_bar'] !== 'undefined' ? url['with_admin_bar'] : false);
@@ -979,7 +1078,7 @@ class GRAV_TESTS {
 				setTimeout(function(){
 					if(!grav_js_tests_failed[test])
 					{
-						jQuery('<div class="iframe-container-'+test+'" id="'+url_id+'" style="width:0;height:0;overflow:hidden;"><iframe width="'+width+'" height="'+height+'" name="'+url_id+'" src="'+src+(src.indexOf('?') > -1 ? '&' : '?')+'grav_js_test='+test+(!admin_bar ? '&grav_js_remove_admin_bar=1' : '')+'"></div>').appendTo('body').css('visibility', 'hidden');
+						jQuery('<div class="iframe-container-'+test+'" id="'+url_id+'" style="width:0;height:0;overflow:hidden;"><iframe width="'+width+'" height="'+height+'" name="'+url_id+'" src="'+src+(!admin_bar ? '&grav_wp_remove_admin_bar=1' : '')+'"></div>').appendTo('body').css('visibility', 'hidden');
 					}
 				}, 500*sec);
 			}
@@ -987,7 +1086,7 @@ class GRAV_TESTS {
 
 		function test_remove_queries(value, test)
 		{
-			return value.replace('?grav_js_test='+test, '').replace('&grav_js_test='+test, '').replace('&grav_js_remove_admin_bar=1', '');
+			return value.replace('?'+grav_tests[test]['url_auth'], '').replace('&'+grav_tests[test]['url_auth'], '').replace(grav_tests[test]['url_auth'], '').replace('&grav_wp_remove_admin_bar=1', '');
 		}
 
 		function test_results(response, test)
@@ -1067,11 +1166,12 @@ class GRAV_TESTS {
 							error_message = (typeof errors[e]['message'] !== 'undefined' ? errors[e]['message'] : '');
 							error_location = (typeof errors[e]['location'] !== 'undefined' ? errors[e]['location'] : '');
 							error_line = (typeof errors[e]['line'] !== 'undefined' ? ' (Line: '+errors[e]['line']+')' : '');
+							error_details = (typeof errors[e]['details'] !== 'undefined' ? errors[e]['details'] : '');
 
 							error_message = test_remove_queries(error_message, test);
 							error_location = test_remove_queries(error_location, test)+error_line;
 
-							jQuery('<h4>'+error_message+'</h4>'+(error_location ? '<input type="text" value="'+error_location+'" readonly="readonly">' : '')).appendTo('.test-' + test + '_error_list .errors_list');
+							jQuery('<h4>'+error_message+'</h4>'+(error_location ? '<input type="text" value="'+error_location+'" readonly="readonly">' : '')+(error_details ? '<small>'+error_details+'</small>' : '')).appendTo('.test-' + test + '_error_list .errors_list');
 						}
 					}
 				}
@@ -1120,7 +1220,17 @@ class GRAV_TESTS {
 				$test_class = $test['class'];
 
 				$test_obj = new $test_class();
+				$id = sanitize_title($test['label']).'-'.dechex(crc32($test['file']));
+
+				if(strpos($test['file'], '/gravitate-automated-tester/grav_tests/php_errors.php') !== false)
+				{
+					$id = 'grav-test-php-errors';
+				}
+
+				$test_obj->id = $id;
+
 				$response = $test_obj->run();
+
 				if(!empty($response))
 				{
 					echo json_encode($response);
@@ -1137,6 +1247,7 @@ class GRAV_TESTS {
 
 	public static function ajax_run_fix_test()
 	{
+		sleep(1);
 		if(!empty($_POST['grav_test']) && is_user_logged_in() && current_user_can('manage_options'))
 		{
 			$tests = self::get_tests();
@@ -1216,6 +1327,11 @@ class YourCompanyNameCustomTestName
 		return 'Your Description of the Test Here';
 	}
 
+	public function can_run() /* OPTIONAL */
+	{
+		return true;
+	}
+
 	public function run()
 	{
 		if(true)
@@ -1225,7 +1341,7 @@ class YourCompanyNameCustomTestName
 		else if(false)
 		{
 			$errors = array();
-			$errors[] = array('message' => 'It Failed because of this', , 'location' => 'somefile.php', 'line' => 43);
+			$errors[] = array('message' => 'It Failed because of this', , 'location' => 'somefile.php', 'line' => 43, 'details' => 'Longer Details Here.');
 			return array('pass' => false, 'message' => 'Your Test Failed', 'errors' => $errors);
 		}
 		else
@@ -1243,6 +1359,11 @@ class YourCompanyNameCustomTestName
 		}
 
 		return false;
+	}
+
+	public function fix_confirmation() /* OPTIONAL */
+	{
+		return 'Make sure to check the site after you fix this issue.';
 	}
 
 	public function fix() /* OPTIONAL */
@@ -1301,7 +1422,7 @@ class YourCompanyNameCustomTestName
 		return $js_urls;
 	}
 
-	public function js_head()
+	public function wp_head()
 	{
 		?&gt;
 		&lt;script type="text/javascript"&gt;
@@ -1323,7 +1444,7 @@ class YourCompanyNameCustomTestName
 		&lt;?php
 	}
 
-	public function js_footer()
+	public function wp_footer()
 	{
 		?&gt;
 		&lt;script type="text/javascript"&gt;
@@ -1359,6 +1480,21 @@ class YourCompanyNameCustomTestName
 
 				</textarea>
 				</blockquote>
+				<br>
+				<h2>Injector Methods</h2>
+
+				<h3>wp_start(), wp_head(), wp_footer()</h3>
+				These methods will allow you to run php code as the test is being loaded from another script.
+				<br>
+				Ex.<br>
+					wp_remote_get(site_url());<br>
+<br>
+				In order to use the Injector Methods you must authenticate the url by passing it through the url_add_auth() method.<br>
+				Ex.<br>
+				    wp_remote_get(GRAV_TESTS::url_add_auth(site_url(), $this->id));<br>
+				    <br>
+				This is automatically done for you when using the js_urls() method as seen above.  So you only need to do this when manually fetching your own urls.<br>
+				It is recommended to use wp_remote_get() over file_get_contents() as it handles redirects and errors better.
 		</div>
 		<?php
 

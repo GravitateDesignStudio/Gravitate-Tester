@@ -29,15 +29,18 @@ class GRAV_TEST_WP_VERSION
 
 	public function run()
 	{
-		if($contents = file_get_contents('http://api.wordpress.org/core/version-check/1.0/?version='.get_bloginfo('version')))
+		if($contents = wp_remote_get('http://api.wordpress.org/core/version-check/1.0/?version='.get_bloginfo('version'), array('sslverify' => false, 'timeout' => 15)))
 		{
-			if(strpos($contents, 'latest') !== false)
+			if(!empty($contents['body']))
 			{
-				return array('pass' => true, 'message' => 'Your WordPress Core is up to date', 'location' => '');
-			}
-			else if(strpos($contents, 'upgrade') !== false)
-			{
-				return array('pass' => false, 'message' => 'Your WordPress Core is out of date.', 'location' => '');
+				if(strpos($contents['body'], 'latest') !== false)
+				{
+					return array('pass' => true, 'message' => 'Your WordPress Core is up to date', 'location' => '');
+				}
+				else if(strpos($contents['body'], 'upgrade') !== false)
+				{
+					return array('pass' => false, 'message' => 'Your WordPress Core is out of date.', 'location' => '');
+				}
 			}
 		}
 		return array('pass' => null, 'message' => 'Error checking WP API', 'location' => '');

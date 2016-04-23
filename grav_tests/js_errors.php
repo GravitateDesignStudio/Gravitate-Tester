@@ -38,7 +38,7 @@ class GRAV_TEST_JS_ERRORS
 		return $js_urls;
 	}
 
-	public function js_head()
+	public function wp_head()
 	{
 		?>
 		<script type="text/javascript">
@@ -83,7 +83,7 @@ class GRAV_TEST_JS_ERRORS
 	}
 
 
-	public function js_footer()
+	public function wp_footer()
 	{
 		?>
 		<script>

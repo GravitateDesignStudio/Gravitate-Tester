@@ -46,26 +46,29 @@ class GRAV_TEST_HTML_VALID
 
 		foreach ($urls as $url)
 		{
-			if($contents = wp_remote_get('https://validator.w3.org/nu/?doc='.$url))
+			if($contents = wp_remote_get('https://validator.w3.org/nu/?doc='.$url, array('sslverify' => false, 'timeout' => 15)))
 			{
-				if(strpos($contents, '<div id="results">') === false)
+				if(!empty($contents['body']))
 				{
-					return array(
-						'pass' => null,
-						'message' => 'Error loading W3C Validator',
-						'location' => ''
-					);
-				}
+					if(strpos($contents['body'], '<div id="results">') === false)
+					{
+						return array(
+							'pass' => null,
+							'message' => 'Error loading W3C Validator',
+							'location' => ''
+						);
+					}
 
-				if(strpos($contents, '<li class="error">') !== false)
-				{
-					$errors[] = array(
-						'message' => 'Page ('.$url.') is not HTML Valid. <a target="_blank" href="'.'https://validator.w3.org/nu/?doc='.$url.'">Learn More</a>',
-						'location' => $url
-					);
-				}
+					if(strpos($contents['body'], '<li class="error">') !== false)
+					{
+						$errors[] = array(
+							'message' => 'Page ('.$url.') is not HTML Valid. <a target="_blank" href="'.'https://validator.w3.org/nu/?doc='.$url.'">Learn More</a>',
+							'location' => $url
+						);
+					}
 
-				$loaded_pages++;
+					$loaded_pages++;
+				}
 			}
 		}
 
